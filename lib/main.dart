@@ -1,35 +1,30 @@
 ﻿import 'package:flutter/material.dart';
-
-import 'models/registered_user.dart';
-import 'pages/home_page.dart';
+import 'screens/splash/splash_screen.dart'; // Import Splash Screen
 
 void main() {
-  runApp(const MyApp());
+  runApp(const MajelisRentalApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MajelisRentalApp extends StatelessWidget {
+  const MajelisRentalApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Majelis Rental',
       debugShowCheckedModeBanner: false,
-      title: 'Rental Outdoor',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF795548)),
-        scaffoldBackgroundColor: const Color(0xFFF4F1EF),
-        fontFamily: 'Poppins',
-      ),
-      home: HomePage(
-        currentUser: RegisteredUser(
-          fullName: 'Demo User',
-          email: 'demo@majelis.id',
-          password: 'password123',
-          phone: '+62 812 3456 7890',
-          address: 'Jl. Demo No. 1, Bandung',
+        primaryColor: const Color(0xFF3E2723), // Dark Brown
+        scaffoldBackgroundColor: const Color(0xFFF5EFE6), // Cream
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF3E2723),
+          primary: const Color(0xFF3E2723),
         ),
-        onLogout: () {},
+        fontFamily: 'Roboto', 
+        useMaterial3: true,
       ),
+      // Ubah home menjadi SplashScreen
+      home: const SplashScreen(), 
     );
   }
 }
