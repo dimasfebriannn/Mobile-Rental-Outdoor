@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:majelis_adventure/screens/profile/profile_screen.dart';
 import '../../widgets/product_card.dart';
 import '../../models/product.dart';
+import '../history/history_screen.dart'; // Import halaman pesanan
 import 'detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,7 +16,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final Color creamBg = const Color(0xFFF5EFE6);
   final Color darkBrown = const Color(0xFF3E2723);
-  final Color deepBlack = const Color(0xFF1B1210); // Tambahan untuk Luxury Depth
+  final Color deepBlack = const Color(0xFF1B1210); 
   final Color goldenYellow = const Color(0xFFE5A93D);
 
   int _selectedIndex = 0;
@@ -46,81 +48,98 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // LOGIC PINDAH HALAMAN
+  Widget _buildBody() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildCatalogPage(); // Fungsi untuk menampilkan Katalog
+      case 1:
+        return const HistoryScreen(); // Menampilkan halaman Pesanan
+      case 2:
+        return const Center(child: Text("Halaman Favorit")); 
+      case 3:
+        return const ProfileScreen();
+      default:
+        return _buildCatalogPage();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: creamBg,
       body: Stack(
         children: [
-          CustomScrollView(
-            slivers: [
-              // HEADER LUXURY
-              SliverToBoxAdapter(child: _buildLuxuryHeader()),
+          // Menampilkan konten berdasarkan menu yang dipilih
+          _buildBody(),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 50)),
-
-              // FILTERS
-              SliverToBoxAdapter(child: _buildCompactFilters()),
-              
-              // TITLE
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-                sliver: SliverToBoxAdapter(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Katalog Rental", style: TextStyle(color: darkBrown, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-                      Icon(Icons.sort_rounded, color: darkBrown, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-
-              // GRID PRODUK
-              _filteredProducts.isEmpty 
-                ? SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.only(top: 50), child: Text("Barang tidak ditemukan", style: TextStyle(color: darkBrown.withOpacity(0.5))))))
-                : SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    sliver: SliverGrid(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 0.72,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => ProductCard(
-                          product: _filteredProducts[index],
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              PageRouteBuilder(
-                                transitionDuration: const Duration(milliseconds: 500),
-                                pageBuilder: (context, animation, secondaryAnimation) => DetailScreen(product: _filteredProducts[index]),
-                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                  return FadeTransition(opacity: animation, child: child);
-                                },
-                              ),
-                            );
-                          }, name: '', price: '', imagePath: '',
-                        ),
-                        childCount: _filteredProducts.length,
-                      ),
-                    ),
-                  ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
-            ],
-          ),
+          // Navbar tetap tampil di depan (Stack)
           _buildBottomNavBar(),
         ],
       ),
     );
   }
 
-  // ================= REDESIGN HEADER: MODERN LUXURY =================
+  // PINDAHKAN KONTEN KATALOG KE SINI (Agar UI tidak berubah)
+  Widget _buildCatalogPage() {
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _buildLuxuryHeader()),
+        const SliverToBoxAdapter(child: SizedBox(height: 50)),
+        SliverToBoxAdapter(child: _buildCompactFilters()),
+        
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+          sliver: SliverToBoxAdapter(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Katalog Rental", style: TextStyle(color: darkBrown, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                Icon(Icons.sort_rounded, color: darkBrown, size: 20),
+              ],
+            ),
+          ),
+        ),
+
+        _filteredProducts.isEmpty 
+          ? SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.only(top: 50), child: Text("Barang tidak ditemukan", style: TextStyle(color: darkBrown.withOpacity(0.5))))))
+          : SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 0.72,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => ProductCard(
+                    product: _filteredProducts[index],
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        PageRouteBuilder(
+                          transitionDuration: const Duration(milliseconds: 500),
+                          pageBuilder: (context, animation, secondaryAnimation) => DetailScreen(product: _filteredProducts[index]),
+                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                            return FadeTransition(opacity: animation, child: child);
+                          },
+                        ),
+                      );
+                    }, name: '', price: '', imagePath: '',
+                  ),
+                  childCount: _filteredProducts.length,
+                ),
+              ),
+            ),
+        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+      ],
+    );
+  }
+
+  // --- UI WIDGETS (TETAP SAMA PERSIS SEPERTI MILIKMU) ---
+
   Widget _buildLuxuryHeader() {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Background Luxury Gradient
         Container(
           height: 260,
           width: double.infinity,
@@ -137,7 +156,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Stack(
             children: [
-              // Efek Cahaya Dekoratif (Ambient Glow)
               Positioned(
                 top: -50,
                 right: -50,
@@ -156,29 +174,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              
-              // Topography Pattern Simulation (Garis halus)
               Opacity(
                 opacity: 0.05,
                 child: Container(
                   decoration: const BoxDecoration(
                     image: DecorationImage(
-                      image: AssetImage('lib/assets/img/majelis.png'), // Opsional: Pakai pattern kalau ada
+                      image: AssetImage('lib/assets/img/majelis.png'), 
                       fit: BoxFit.cover,
                       repeat: ImageRepeat.repeat,
                     ),
                   ),
                 ),
               ),
-
-              // Content Header
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Top Row: Profile & Action
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -208,27 +221,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      
                       const Spacer(),
-
-                      // Headline yang sudah di-upgrade
-                      Text(
-                        "PERLENGKAPAN PRO,",
-                        style: TextStyle(color: goldenYellow, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 3),
-                      ),
+                      Text("PERLENGKAPAN PRO,", style: TextStyle(color: goldenYellow, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 3)),
                       const SizedBox(height: 4),
-                      Text(
-                        "Puncak Menanti.",
-                        style: TextStyle(
-                          color: Colors.white, 
-                          fontSize: 32, 
-                          fontWeight: FontWeight.w900, 
-                          height: 1.0, 
-                          letterSpacing: -1,
-                          shadows: [Shadow(color: Colors.black.withOpacity(0.3), offset: const Offset(0, 4), blurRadius: 10)]
-                        ),
-                      ),
-                      const SizedBox(height: 50), // Ruang untuk Search Bar
+                      Text("Puncak Menanti.", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, height: 1.0, letterSpacing: -1, shadows: [Shadow(color: Colors.black.withOpacity(0.3), offset: const Offset(0, 4), blurRadius: 10)])),
+                      const SizedBox(height: 50), 
                     ],
                   ),
                 ),
@@ -236,8 +233,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-
-        // Search Bar dengan Efek Glassmorphism yang lebih kuat
         Positioned(
           bottom: -28, left: 24, right: 24,
           child: ClipRRect(
