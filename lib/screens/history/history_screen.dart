@@ -1,8 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../models/order_model.dart';
 import '../../widgets/order_card.dart';
-import 'order_detail_screen.dart'; // Pastikan import detail pesanan ada
+import 'order_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -13,10 +12,9 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final Color darkBrown = const Color(0xFF3E2723);
-  final Color goldenYellow = const Color(0xFFE5A93D);
-  final Color creamBg = const Color(0xFFF5EFE6);
-  final Color deepBlack = const Color(0xFF1B1210);
+  final Color cokelatTua = const Color(0xFF3E2723);
+  final Color emasMajelis = const Color(0xFFE5A93D);
+  final Color latarKrem = const Color(0xFFF5EFE6);
 
   @override
   void initState() {
@@ -33,48 +31,39 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: creamBg,
-      body: Stack(
+      backgroundColor: latarKrem,
+      body: Column(
         children: [
-          // 1. ELEMEN DEKORATIF BACKGROUND
-          Positioned(
-            top: -100,
-            right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: goldenYellow.withOpacity(0.03),
-              ),
+          // 1. HEADER RAMPING & MEWAH
+          _buildSleekHeader(),
+
+          // 2. TAB SELECTION (PILL STYLE)
+          _buildPillTabBar(),
+
+          // 3. DAFTAR PESANAN
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOrderList(isHistory: false),
+                _buildOrderList(isHistory: true),
+              ],
             ),
           ),
-
-          // 2. KONTEN UTAMA
-          Column(
-            children: [
-              _buildLuxuryHeader(),
-              _buildCustomTabBar(),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildOrderList(isHistory: false),
-                    _buildOrderList(isHistory: true),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 100), // Spasi agar tidak tertutup bottom nav
-            ],
-          ),
+          const SizedBox(height: 80), // Jarak untuk Bottom Nav
         ],
       ),
     );
   }
 
-  Widget _buildLuxuryHeader() {
+  Widget _buildSleekHeader() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: cokelatTua.withOpacity(0.05), width: 1)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -82,58 +71,61 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Pesanan Saya",
+                "RIWAYAT",
                 style: TextStyle(
-                  color: darkBrown,
-                  fontSize: 28,
+                  color: emasMajelis,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: -1,
+                  letterSpacing: 3,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
-                "Lacak dan kelola rental alatmu",
+                "Pesanan Saya",
                 style: TextStyle(
-                  color: darkBrown.withOpacity(0.5),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  color: cokelatTua,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
                 ),
               ),
             ],
           ),
           Container(
-            padding: const EdgeInsets.all(10),
+            height: 40,
+            width: 40,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
-              ],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: cokelatTua.withOpacity(0.1)),
             ),
-            child: Icon(Icons.receipt_long_outlined, color: darkBrown, size: 22),
+            child: Icon(Icons.receipt_long_rounded, color: cokelatTua, size: 20),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCustomTabBar() {
+  Widget _buildPillTabBar() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      height: 45,
+      margin: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cokelatTua.withOpacity(0.05)),
       ),
       child: TabBar(
         controller: _tabController,
-        indicator: UnderlineTabIndicator(
-          borderSide: BorderSide(color: goldenYellow, width: 3),
-          insets: const EdgeInsets.symmetric(horizontal: 40),
+        indicator: BoxDecoration(
+          color: cokelatTua,
+          borderRadius: BorderRadius.circular(8),
         ),
-        labelColor: darkBrown,
-        unselectedLabelColor: darkBrown.withOpacity(0.3),
-        labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+        labelColor: Colors.white,
+        unselectedLabelColor: cokelatTua.withOpacity(0.4),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
         tabs: const [
           Tab(text: "Berjalan"),
           Tab(text: "Selesai"),
@@ -156,27 +148,26 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       physics: const BouncingScrollPhysics(),
       itemCount: filteredOrders.length,
       itemBuilder: (context, index) {
         final order = filteredOrders[index];
-        // MODIFIKASI: Menambahkan GestureDetector untuk menangani tap
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              PageRouteBuilder(
-                transitionDuration: const Duration(milliseconds: 400),
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    OrderDetailScreen(order: order),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-              ),
-            );
-          },
-          child: OrderCard(order: order),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  transitionDuration: const Duration(milliseconds: 300),
+                  pageBuilder: (context, anim, _) => OrderDetailScreen(order: order),
+                  transitionsBuilder: (context, anim, _, child) => FadeTransition(opacity: anim, child: child),
+                ),
+              );
+            },
+            child: OrderCard(order: order),
+          ),
         );
       },
     );
@@ -188,27 +179,38 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(30),
+            height: 100,
+            width: 100,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.5),
+              color: cokelatTua.withOpacity(0.03),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.auto_awesome_motion_outlined,
-              size: 60,
-              color: darkBrown.withOpacity(0.1),
+              Icons.auto_awesome_motion_rounded,
+              size: 40,
+              color: cokelatTua.withOpacity(0.1),
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            "Belum Ada Jejak",
-            style: TextStyle(color: darkBrown, fontSize: 18, fontWeight: FontWeight.w900),
+            "Belum Ada Pesanan",
+            style: TextStyle(
+              color: cokelatTua,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
-            "Mulailah petualangan barumu\ndengan menyewa alat pro kami.",
+            "Mulai petualanganmu dengan\nmenyewa perlengkapan terbaik kami.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: darkBrown.withOpacity(0.4), fontSize: 13, height: 1.5),
+            style: TextStyle(
+              color: cokelatTua.withOpacity(0.4),
+              fontSize: 13,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
