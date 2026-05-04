@@ -9,6 +9,10 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final Color cokelatTua = const Color(0xFF3E2723);
+  final Color emasMajelis = const Color(0xFFE5A93D);
+  final Color latarKrem = const Color(0xFFF5EFE6);
+
   // LOGIKA WHATSAPP
   Future<void> _hubungiAdmin(BuildContext context, String pesan) async {
     final String nomorWA = "6281358609650";
@@ -26,8 +30,9 @@ class _ChatScreenState extends State<ChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text("Gagal membuka WhatsApp. Pastikan aplikasi terpasang."),
-            backgroundColor: const Color(0xFF3E2723),
+            backgroundColor: cokelatTua,
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -36,57 +41,76 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color cokelatTua = Color(0xFF3E2723);
-    const Color emasMajelis = Color(0xFFE5A93D);
-    const Color latarKrem = Color(0xFFF5EFE6);
-
     return Scaffold(
       backgroundColor: latarKrem,
       body: Column(
         children: [
-          // HEADER RAMPING & LUXURY (FIXED)
-          _buildSleekHeader(cokelatTua, emasMajelis),
+          // 1. LUXURY HEADER (Tinggi & Padding Sama Presisi dengan Home)
+          _buildLuxuryHeader(),
 
+          // 2. DAFTAR LAYANAN CONCIERGE
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
-              children: [
-                _buildLayananItem(
-                  context,
-                  "Cek Stok & Booking",
-                  "Tanya ketersediaan alat untuk tanggal pendakian Anda",
-                  Icons.calendar_today_rounded,
-                  "Halo Admin, saya ingin cek ketersediaan alat untuk tanggal...",
-                  cokelatTua, emasMajelis,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(26, 25, 24, 10),
+                    child: Text(
+                      "PILIH KATEGORI LAYANAN",
+                      style: TextStyle(
+                        color: cokelatTua.withOpacity(0.3),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
                 ),
-                _buildLayananItem(
-                  context,
-                  "Pembayaran & Deposit",
-                  "Konfirmasi transfer atau klaim pengembalian dana",
-                  Icons.account_balance_wallet_outlined,
-                  "Halo Admin, saya ingin konfirmasi pembayaran/refund untuk pesanan...",
-                  cokelatTua, emasMajelis,
+
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildEliteContactTile(
+                        context,
+                        "Cek Stok & Booking",
+                        "Tanya ketersediaan alat untuk tanggal pendakian Anda",
+                        Icons.inventory_2_outlined,
+                        "Halo Admin Majelis Adventure, saya ingin mengecek ketersediaan alat untuk tanggal...",
+                        emasMajelis,
+                      ),
+                      _buildEliteContactTile(
+                        context,
+                        "Pembayaran & Deposit",
+                        "Konfirmasi transfer atau klaim pengembalian dana",
+                        Icons.payments_outlined,
+                        "Halo Admin, saya ingin konfirmasi pembayaran atau pengembalian deposit untuk pesanan...",
+                        emasMajelis,
+                      ),
+                      _buildEliteContactTile(
+                        context,
+                        "Perpanjang Sewa",
+                        "Tambah durasi sewa alat yang sedang Anda gunakan",
+                        Icons.more_time_rounded,
+                        "Halo Admin, saya ingin memperpanjang durasi sewa perlengkapan saya...",
+                        emasMajelis,
+                      ),
+                      _buildEliteContactTile(
+                        context,
+                        "Lapor Kendala & Hilang",
+                        "Laporan kerusakan atau kehilangan alat rental",
+                        Icons.report_gmailerrorred_rounded,
+                        "PENTING: Saya ingin melaporkan adanya kendala atau kehilangan pada barang rental...",
+                        const Color(0xFFE24A4A), // Soft Red
+                      ),
+                      
+                      const SizedBox(height: 40),
+                      _buildFooterInfo(),
+                      const SizedBox(height: 120),
+                    ]),
+                  ),
                 ),
-                _buildLayananItem(
-                  context,
-                  "Tambah Durasi Sewa",
-                  "Perpanjang masa sewa alat yang sedang digunakan",
-                  Icons.history_toggle_off_rounded,
-                  "Halo Admin, saya ingin memperpanjang durasi sewa alat saya...",
-                  cokelatTua, emasMajelis,
-                ),
-                _buildLayananItem(
-                  context,
-                  "Lapor Barang Hilang",
-                  "Laporan kehilangan atau kerusakan alat rental",
-                  Icons.report_problem_outlined,
-                  "PENTING: Saya ingin melaporkan adanya kendala/kehilangan pada barang...",
-                  cokelatTua, Colors.redAccent,
-                ),
-                
-                const SizedBox(height: 40),
-                _buildFooterInfo(cokelatTua),
               ],
             ),
           ),
@@ -95,14 +119,14 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // HEADER RAMPING (GEOMETRIC LUXURY)
-  Widget _buildSleekHeader(Color ct, Color em) {
+  // HEADER: Identik dengan HomeScreen (Padding 60px atas, 20px bawah)
+  Widget _buildLuxuryHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 60, 24, 25),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: ct.withOpacity(0.05), width: 1)),
+        border: Border(bottom: BorderSide(color: Color(0x0D3E2723), width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -110,107 +134,150 @@ class _ChatScreenState extends State<ChatScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("CONCIERGE", style: TextStyle(color: em, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 3)),
+              Text(
+                "PUSAT BANTUAN",
+                style: TextStyle(
+                  color: emasMajelis,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text("Layanan Rental", style: TextStyle(color: ct, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+              Text(
+                "Hubungi Admin",
+                style: TextStyle(
+                  color: cokelatTua,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                ),
+              ),
             ],
           ),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: ct.withOpacity(0.1)),
+              color: latarKrem.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.forum_outlined, color: ct, size: 22),
+            child: Icon(Icons.support_agent_rounded, color: cokelatTua, size: 22),
           ),
         ],
       ),
     );
   }
 
-  // WIDGET CARD DENGAN ANIMASI INTERAKTIF
-  Widget _buildLayananItem(BuildContext context, String judul, String sub, IconData ikon, String pesan, Color ct, Color aksen) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 500),
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 20 * (1 - value)),
-              child: child,
-            ),
-          );
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: ct.withOpacity(0.05)),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => _hubungiAdmin(context, pesan),
-              splashColor: aksen.withOpacity(0.1),
-              highlightColor: Colors.transparent,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    // ICON CONTAINER
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: aksen.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Icon(ikon, color: aksen, size: 26),
-                    ),
-                    const SizedBox(width: 18),
-                    // TEXT CONTENT
-                    Expanded(
+  Widget _buildEliteContactTile(BuildContext context, String judul, String sub, IconData ikon, String pesan, Color aksen) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cokelatTua.withOpacity(0.05), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: cokelatTua.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          )
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 75,
+                color: aksen.withOpacity(0.05),
+                child: Center(
+                  child: Icon(ikon, color: aksen, size: 26),
+                ),
+              ),
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _hubungiAdmin(context, pesan),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(judul, style: TextStyle(color: ct, fontWeight: FontWeight.w900, fontSize: 16)),
+                          Text(
+                            judul,
+                            style: TextStyle(
+                              color: cokelatTua,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          Text(sub, style: TextStyle(color: ct.withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w500, height: 1.4)),
+                          Text(
+                            sub,
+                            style: TextStyle(
+                              color: cokelatTua.withOpacity(0.4),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(
+                                "HUBUNGI SEKARANG",
+                                style: TextStyle(
+                                  color: aksen,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.chevron_right_rounded, size: 12, color: aksen),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    // SMALL INDICATOR
-                    Icon(Icons.arrow_forward_ios_rounded, color: ct.withOpacity(0.1), size: 14),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFooterInfo(Color ct) {
-    return Opacity(
-      opacity: 0.3,
-      child: Column(
-        children: [
-          const Icon(Icons.verified_user_outlined, size: 30),
-          const SizedBox(height: 12),
-          Text(
-            "TERHUBUNG DENGAN WHATSAPP RESMI",
-            style: TextStyle(color: ct, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+  Widget _buildFooterInfo() {
+    return Column(
+      children: [
+        Icon(Icons.verified_user_outlined, size: 24, color: cokelatTua.withOpacity(0.1)),
+        const SizedBox(height: 12),
+        Text(
+          "ENKRIPSI END-TO-END",
+          style: TextStyle(
+            color: cokelatTua.withOpacity(0.2),
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
           ),
-          Text(
-            "MAJELIS ADVENTURE SUPPORT SYSTEM",
-            style: TextStyle(color: ct, fontSize: 8, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          "Layanan resmi Majelis Adventure Support",
+          style: TextStyle(
+            color: cokelatTua.withOpacity(0.2),
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

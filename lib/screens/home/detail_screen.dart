@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
-import 'package:intl/intl.dart'; 
+import 'package:intl/intl.dart';
 
 class DetailScreen extends StatefulWidget {
   final Product product;
@@ -17,23 +17,17 @@ class _DetailScreenState extends State<DetailScreen> {
   final Color goldenYellow = const Color(0xFFE5A93D);
   final Color creamBg = const Color(0xFFF5EFE6);
 
-  DateTimeRange? _selectedDateRange;
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now().add(const Duration(days: 1));
+  bool _isBooking = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedDateRange = DateTimeRange(
-      start: DateTime.now(),
-      end: DateTime.now().add(const Duration(days: 1)),
-    );
-  }
-
-  Future<void> _selectDateRange(BuildContext context) async {
-    final DateTimeRange? picked = await showDateRangePicker(
+  // --- LOGIKA PICKER TANGGAL TUNGGAL ---
+  Future<void> _pickDate(BuildContext context, bool isStart) async {
+    final DateTime? picked = await showDatePicker(
       context: context,
-      firstDate: DateTime.now(),
+      initialDate: isStart ? _startDate : _endDate,
+      firstDate: isStart ? DateTime.now() : _startDate.add(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 90)),
-      initialDateRange: _selectedDateRange,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -47,8 +41,19 @@ class _DetailScreenState extends State<DetailScreen> {
         );
       },
     );
+
     if (picked != null) {
-      setState(() => _selectedDateRange = picked);
+      setState(() {
+        if (isStart) {
+          _startDate = picked;
+          // Validasi agar tanggal kembali minimal H+1 dari tanggal ambil
+          if (_startDate.isAfter(_endDate) || _startDate.isAtSameMomentAs(_endDate)) {
+            _endDate = _startDate.add(const Duration(days: 1));
+          }
+        } else {
+          _endDate = picked;
+        }
+      });
     }
   }
 
@@ -56,72 +61,68 @@ class _DetailScreenState extends State<DetailScreen> {
     return DateFormat('dd MMM yyyy').format(date);
   }
 
-  // ================= LOGIC SPEK DINAMIS =================
-  // Fungsi untuk menentukan spek apa yang tampil berdasarkan kategori
-  Widget _buildDynamicSpecs() {
-    switch (widget.product.category) {
-      case "Tenda":
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  void _handleSewa(int totalDays, String totalPrice) {
+    setState(() => _isBooking = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() => _isBooking = false);
+      _showSuccessSheet(totalDays, totalPrice);
+    });
+  }
+
+  void _showSuccessSheet(int days, String price) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildQuickInfo(Icons.people_outline_rounded, "Kapasitas", "4 Orang"),
-            _buildQuickInfo(Icons.layers_outlined, "Lapisan", "Double Layer"),
-            _buildQuickInfo(Icons.fitness_center_rounded, "Berat", "2.8 Kg"),
+            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 60),
+            const SizedBox(height: 24),
+            Text("Berhasil Dipesan!", style: TextStyle(color: darkBrown, fontSize: 24, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 12),
+            Text(
+              "Pesanan untuk ${widget.product.name} telah masuk ke keranjang untuk tanggal ${_formatDate(_startDate)}.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: darkBrown.withOpacity(0.6), fontSize: 14),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: darkBrown, 
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                ),
+                child: const Text("TUTUP", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
           ],
-        );
-      case "Carrier":
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildQuickInfo(Icons.takeout_dining_outlined, "Volume", "60 Liter"),
-            _buildQuickInfo(Icons.accessibility_new_rounded, "Backsystem", "Adjustable"),
-            _buildQuickInfo(Icons.fitness_center_rounded, "Berat", "1.5 Kg"),
-          ],
-        );
-      case "Alat Masak":
-      case "Kompor":
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildQuickInfo(Icons.local_gas_station_outlined, "Bahan Bakar", "Butane/Gas"),
-            _buildQuickInfo(Icons.speed_rounded, "Boil Time", "3.5 Menit"),
-            _buildQuickInfo(Icons.settings_input_component_rounded, "Bahan", "Alloy"),
-          ],
-        );
-      case "Lampu":
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildQuickInfo(Icons.wb_sunny_outlined, "Terang", "350 Lumens"),
-            _buildQuickInfo(Icons.battery_charging_full_rounded, "Power", "Rechargeable"),
-            _buildQuickInfo(Icons.water_drop_outlined, "Fitur", "Waterproof"),
-          ],
-        );
-      case "Sepatu":
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildQuickInfo(Icons.high_quality_rounded, "Tipe", "Mid Cut"),
-            _buildQuickInfo(Icons.shield_outlined, "Sole", "Vibram Outsole"),
-            _buildQuickInfo(Icons.water_drop_outlined, "Upper", "Gore-Tex"),
-          ],
-        );
-      default:
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildQuickInfo(Icons.verified_user_outlined, "Kualitas", "Original"),
-            _buildQuickInfo(Icons.cleaning_services_outlined, "Kondisi", "Steril"),
-            _buildQuickInfo(Icons.fitness_center_rounded, "Berat", "N/A"),
-          ],
-        );
-    }
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    int totalDays = _selectedDateRange?.duration.inDays ?? 1;
-    if (totalDays == 0) totalDays = 1;
+    // Hitung durasi hari
+    int totalDays = _endDate.difference(_startDate).inDays;
+    if (totalDays <= 0) totalDays = 1;
+
+    int priceInt = int.parse(widget.product.price.replaceAll('.', ''));
+    String totalPriceFormatted = NumberFormat.currency(
+      locale: 'id', 
+      symbol: 'Rp ', 
+      decimalDigits: 0
+    ).format(priceInt * totalDays);
 
     return Scaffold(
       backgroundColor: creamBg,
@@ -132,15 +133,8 @@ class _DetailScreenState extends State<DetailScreen> {
             top: 0, left: 0, right: 0,
             height: MediaQuery.of(context).size.height * 0.5,
             child: Hero(
-              tag: widget.product.name,
-              child: Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage(widget.product.imagePath),
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
+              tag: widget.product.name, 
+              child: Image.asset(widget.product.imagePath, fit: BoxFit.contain)
             ),
           ),
 
@@ -164,22 +158,21 @@ class _DetailScreenState extends State<DetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHeader(),
-                        const SizedBox(height: 24),
+                        _buildHeader(), // Tanpa Rating
+                        const SizedBox(height: 32),
+                        Text("Periode Sewa", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 16)),
+                        const SizedBox(height: 16),
+                        
+                        // DUAL DATE SELECTOR (MODEL BARU)
+                        _buildDualDateSelectors(),
 
-                        // SPEK DINAMIS DIPANGGIL DI SINI
+                        const SizedBox(height: 32),
                         _buildDynamicSpecs(),
-
                         const SizedBox(height: 32),
-                        Text("Periode Sewa", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w800, fontSize: 16)),
-                        const SizedBox(height: 12),
-                        _buildDateSelectorCard(),
-
-                        const SizedBox(height: 32),
-                        Text("Deskripsi Produk", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w800, fontSize: 16)),
+                        Text("Deskripsi", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 16)),
                         const SizedBox(height: 8),
                         Text(
-                          "Produk ini merupakan gear pilihan terbaik dari Majelis Adventure. Semua alat telah melalui pengecekan kebersihan dan keamanan yang ketat sebelum diserahkan ke pelanggan.",
+                          "Peralatan ekspedisi kualitas premium yang selalu disterilisasi sebelum dan sesudah penggunaan. Jaminan kenyamanan pendakian Anda.",
                           style: TextStyle(color: darkBrown.withOpacity(0.6), height: 1.6, fontSize: 14),
                         ),
                       ],
@@ -191,67 +184,59 @@ class _DetailScreenState extends State<DetailScreen> {
           ),
 
           _buildBackButton(),
-          _buildFloatingBottomBar(totalDays),
+          _buildFloatingBottomBar(totalDays, totalPriceFormatted),
         ],
       ),
     );
   }
 
-  // WIDGET HELPERS
-  Widget _buildHeader() {
+  // --- WIDGET DUAL DATE SELECTOR ---
+  Widget _buildDualDateSelectors() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.product.category.toUpperCase(), style: TextStyle(color: goldenYellow, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 2)),
-              const SizedBox(height: 4),
-              Text(widget.product.name, style: TextStyle(color: darkBrown, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -1)),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(color: creamBg, borderRadius: BorderRadius.circular(12)),
-          child: Row(children: [Icon(Icons.star_rounded, color: goldenYellow, size: 18), Text(" 4.9", style: TextStyle(color: darkBrown, fontWeight: FontWeight.bold))]),
-        ),
+        Expanded(child: _datePickerCard("AMBIL", _startDate, true)),
+        const SizedBox(width: 12),
+        Expanded(child: _datePickerCard("KEMBALI", _endDate, false)),
       ],
     );
   }
 
-  Widget _buildDateSelectorCard() {
+  Widget _datePickerCard(String label, DateTime date, bool isStart) {
     return InkWell(
-      onTap: () => _selectDateRange(context),
-      borderRadius: BorderRadius.circular(20),
+      onTap: () => _pickDate(context, isStart),
+      borderRadius: BorderRadius.circular(15),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: creamBg.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: darkBrown.withOpacity(0.1)),
+          color: creamBg.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: darkBrown.withOpacity(0.05)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _dateBox("Ambil", _formatDate(_selectedDateRange!.start)),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 15), child: Icon(Icons.arrow_forward_rounded, color: goldenYellow, size: 20)),
-            _dateBox("Kembali", _formatDate(_selectedDateRange!.end)),
-            const Spacer(),
-            Icon(Icons.calendar_month_rounded, color: darkBrown),
+            Text(label, style: TextStyle(color: goldenYellow, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.calendar_today_outlined, size: 14, color: darkBrown),
+                const SizedBox(width: 8),
+                Text(_formatDate(date), style: TextStyle(color: darkBrown, fontSize: 13, fontWeight: FontWeight.w800)),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _dateBox(String label, String date) {
+  Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: darkBrown.withOpacity(0.5), fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(date, style: TextStyle(color: darkBrown, fontSize: 13, fontWeight: FontWeight.bold)),
+        Text(widget.product.category.toUpperCase(), style: TextStyle(color: goldenYellow, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2)),
+        const SizedBox(height: 8),
+        Text(widget.product.name, style: TextStyle(color: darkBrown, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1)),
       ],
     );
   }
@@ -259,31 +244,25 @@ class _DetailScreenState extends State<DetailScreen> {
   Widget _buildBackButton() {
     return Positioned(
       top: 50, left: 24,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(100),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.3))),
-              child: Icon(Icons.arrow_back_ios_new_rounded, color: darkBrown, size: 20),
-            ),
-          ),
+      child: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)]),
+          child: Icon(Icons.arrow_back_ios_new_rounded, color: darkBrown, size: 18),
         ),
       ),
     );
   }
 
-  Widget _buildFloatingBottomBar(int days) {
+  Widget _buildFloatingBottomBar(int days, String price) {
     return Positioned(
       bottom: 0, left: 0, right: 0,
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
         ),
         child: Row(
@@ -292,21 +271,24 @@ class _DetailScreenState extends State<DetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Total ($days Hari)", style: TextStyle(color: darkBrown.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.bold)),
-                Text(
-                  "Rp ${(int.parse(widget.product.price.replaceAll('.', '')) * days).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}",
-                  style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 20),
-                ),
+                Text("Total ($days Hari)", style: TextStyle(color: darkBrown.withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w900)),
+                Text(price, style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 22)),
               ],
             ),
             const SizedBox(width: 20),
             Expanded(
               child: SizedBox(
-                height: 56,
+                height: 55,
                 child: ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(backgroundColor: darkBrown, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                  child: const Text("SEWA SEKARANG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  onPressed: _isBooking ? null : () => _handleSewa(days, price),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: darkBrown, 
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), 
+                    elevation: 0
+                  ),
+                  child: _isBooking 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text("SEWA SEKARANG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
                 ),
               ),
             ),
@@ -316,19 +298,23 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  Widget _buildQuickInfo(IconData icon, String title, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildDynamicSpecs() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            Icon(icon, color: goldenYellow, size: 14),
-            const SizedBox(width: 4),
-            Text(title, style: TextStyle(color: darkBrown.withOpacity(0.5), fontSize: 10, fontWeight: FontWeight.w600)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(value, style: TextStyle(color: darkBrown, fontWeight: FontWeight.w800, fontSize: 13)),
+        _specItem(Icons.verified_user_outlined, "Official"),
+        _specItem(Icons.cleaning_services_outlined, "Steril"),
+        _specItem(Icons.fitness_center_rounded, "Pro Gear"),
+      ],
+    );
+  }
+
+  Widget _specItem(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, color: goldenYellow, size: 16),
+        const SizedBox(width: 8),
+        Text(text, style: TextStyle(color: darkBrown, fontSize: 13, fontWeight: FontWeight.w700)),
       ],
     );
   }

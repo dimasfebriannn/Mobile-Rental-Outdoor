@@ -147,7 +147,7 @@ class _SplashScreenState extends State<SplashScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          "MAJELIS RENTAL",
+                          "MAJELIS ADVENTURE",
                           style: TextStyle(
                             color: darkBrown,
                             fontSize: 14,

@@ -7,23 +7,23 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color darkBrown = const Color(0xFF3E2723);
-    final Color goldenYellow = const Color(0xFFE5A93D);
-    final Color creamBg = const Color(0xFFF5EFE6);
+    const Color cokelatTua = Color(0xFF3E2723);
+    const Color emasMajelis = Color(0xFFE5A93D);
+    const Color latarKrem = Color(0xFFF5EFE6);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cokelatTua.withOpacity(0.05), width: 1),
         boxShadow: [
           BoxShadow(
-            color: darkBrown.withOpacity(0.06),
+            color: cokelatTua.withOpacity(0.04),
             blurRadius: 20,
             offset: const Offset(0, 10),
           )
         ],
-        border: Border.all(color: darkBrown.withOpacity(0.03)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -31,106 +31,119 @@ class OrderCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- 1. THUMBNAIL AREA (GEOMETRIC) ---
+              // 1. AREA FOTO PRODUK
               Container(
                 width: 100,
-                margin: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: creamBg,
-                  borderRadius: BorderRadius.circular(18),
-                  image: DecorationImage(
-                    image: AssetImage(order.imagePath),
-                    fit: BoxFit.contain,
+                color: latarKrem.withOpacity(0.5),
+                padding: const EdgeInsets.all(12),
+                child: Center(
+                  child: Hero(
+                    tag: "order_img_${order.orderId}",
+                    child: Image.asset(
+                      order.imagePath,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),
 
-              // --- 2. INFO AREA ---
+              // 2. AREA DETAIL PESANAN
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 16, 16, 16),
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ID PESANAN & STATUS INDONESIA
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Order ID dengan gaya Tag
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: darkBrown.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              order.orderId,
-                              style: TextStyle(
-                                color: darkBrown.withOpacity(0.5),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
+                          Text(
+                            order.orderId.toUpperCase(),
+                            style: TextStyle(
+                              color: cokelatTua.withOpacity(0.3),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.5,
                             ),
                           ),
-                          _buildStatusBadge(order.status),
+                          _buildStatusTag(order.status),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
+
+                      // NAMA PRODUK
                       Text(
                         order.productName,
-                        style: TextStyle(
-                          color: darkBrown,
+                        style: const TextStyle(
+                          color: cokelatTua,
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
                           letterSpacing: -0.5,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
+
+                      // TANGGAL SEWA
                       Row(
                         children: [
-                          Icon(Icons.calendar_today_outlined, size: 12, color: darkBrown.withOpacity(0.3)),
+                          Icon(Icons.event_available_outlined, 
+                            size: 12, color: emasMajelis.withOpacity(0.7)),
                           const SizedBox(width: 6),
                           Text(
                             order.date,
                             style: TextStyle(
-                              color: darkBrown.withOpacity(0.4),
+                              color: cokelatTua.withOpacity(0.4),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
+
                       const Spacer(),
+                      const SizedBox(height: 12),
+
+                      // TOTAL PEMBAYARAN
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "Total Sewa",
+                                "TOTAL PEMBAYARAN",
                                 style: TextStyle(
-                                  color: darkBrown.withOpacity(0.3),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
+                                  color: cokelatTua.withOpacity(0.2),
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                               Text(
                                 "Rp ${order.price}",
-                                style: TextStyle(
-                                  color: goldenYellow,
+                                style: const TextStyle(
+                                  color: cokelatTua,
                                   fontWeight: FontWeight.w900,
                                   fontSize: 15,
                                 ),
                               ),
                             ],
                           ),
-                          // Indikator Klik Detail
-                          Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 14,
-                            color: darkBrown.withOpacity(0.2),
+                          // INDIKATOR DETAIL
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: cokelatTua.withOpacity(0.03),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 10,
+                              color: cokelatTua,
+                            ),
                           ),
                         ],
                       ),
@@ -145,58 +158,56 @@ class OrderCard extends StatelessWidget {
     );
   }
 
-  // REVISI STATUS BADGE: LUXURY MINIMALIST
-  Widget _buildStatusBadge(OrderStatus status) {
-    Color statusColor;
-    String label;
+  // STATUS TAG - VERSI BAHASA INDONESIA
+  Widget _buildStatusTag(OrderStatus status) {
+    Color color;
+    String text;
 
     switch (status) {
       case OrderStatus.diproses:
-        statusColor = Colors.blueAccent;
-        label = "Proses";
+        color = const Color(0xFF4A90E2); // Biru Lembut
+        text = "Diproses";
         break;
       case OrderStatus.aktif:
-        statusColor = const Color(0xFFE5A93D);
-        label = "Disewa";
+        color = const Color(0xFFE5A93D); // Emas
+        text = "Disewa";
         break;
       case OrderStatus.selesai:
-        statusColor = Colors.greenAccent.shade700;
-        label = "Selesai";
+        color = const Color(0xFF52AD56); // Hijau Lembut
+        text = "Selesai";
         break;
       default:
-        statusColor = Colors.redAccent;
-        label = "Batal";
+        color = const Color(0xFFE24A4A); // Merah Lembut
+        text = "Dibatalkan";
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: statusColor,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: statusColor.withOpacity(0.4),
-                blurRadius: 4,
-                spreadRadius: 1,
-              )
-            ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withOpacity(0.2), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            color: statusColor,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.5,
+          const SizedBox(width: 6),
+          Text(
+            text.toUpperCase(),
+            style: TextStyle(
+              color: color,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
