@@ -157,6 +157,8 @@ class ProfileData {
     required this.job,
   });
 
+  get role => null;
+
   ProfileData copyWith({
     String? name,
     String? email,

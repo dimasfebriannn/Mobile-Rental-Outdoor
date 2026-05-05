@@ -1,216 +1,183 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'faq_screen.dart';
 
 class HelpCenterScreen extends StatelessWidget {
   const HelpCenterScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final Color darkBrown = const Color(0xFF3E2723);
-    final Color goldenYellow = const Color(0xFFE5A93D);
-    final Color creamBg = const Color(0xFFF5EFE6);
+    const Color darkBrown = Color(0xFF3E2723);
+    const Color goldenYellow = Color(0xFFE5A93D);
+    const Color creamBg = Color(0xFFF5EFE6);
 
     return Scaffold(
       backgroundColor: creamBg,
-      appBar: AppBar(
-        backgroundColor: creamBg,
-        elevation: 0,
-        foregroundColor: darkBrown,
-        title: const Text('Pusat Bantuan'),
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color.fromRGBO(62, 39, 35, 0.06),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Row(
+      body: Stack(
+        children: [
+          // Background Accent
+          Positioned(
+            top: -30,
+            right: -30,
+            child: Icon(Icons.help_center_rounded, size: 300, color: darkBrown.withOpacity(0.03)),
+          ),
+
+          // Konten Utama
+          Positioned.fill(
+            child: SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 110, 24, 40),
+                child: Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: goldenYellow.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(18),
+                    _buildHelpHero(darkBrown),
+
+                    const SizedBox(height: 50),
+
+                    // DAFTAR FAQ (Berdasarkan Aturan DB)
+                    _buildSectionLabel("PERTANYAAN POPULER", darkBrown),
+                    _buildFaqGroup(darkBrown, [
+                      _faqTile(
+                        "Bagaimana sistem jaminan identitas?",
+                        "Penyewa wajib mengunggah foto KTP, SIM, atau Kartu Pelajar. Data ini akan diproses di tabel jaminan identitas sebagai syarat verifikasi[cite: 1].",
+                        darkBrown,
                       ),
-                      child: Icon(
-                        Icons.support_agent_rounded,
-                        color: goldenYellow,
-                        size: 30,
+                      _faqTile(
+                        "Berapa biaya denda keterlambatan?",
+                        "Denda keterlambatan dihitung otomatis sebesar 50% dari total biaya sewa per hari sesuai data di tabel denda[cite: 1].",
+                        darkBrown,
                       ),
-                    ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Butuh Bantuan?',
-                            style: TextStyle(
-                              color: darkBrown,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tim support siap membantu 24/7 untuk semua kebutuhan rentalmu.',
-                            style: TextStyle(
-                              color: darkBrown.withOpacity(0.72),
-                              fontSize: 13,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
+                      _faqTile(
+                        "Mengapa pesanan COD saya dibatalkan?",
+                        "Sistem membatalkan pesanan tunai (COD) secara otomatis jika pembayaran tidak dilakukan dalam waktu 24 jam[cite: 1].",
+                        darkBrown,
+                      ),
+                      _faqTile(
+                        "Apa yang terjadi jika barang rusak?",
+                        "Admin akan mencatat jenis kerusakan di tabel denda dan menentukan jumlah biaya ganti rugi yang harus dibayar[cite: 1].",
+                        darkBrown,
+                      ),
+                      _faqTile(
+                        "Bagaimana cara pembayaran denda?",
+                        "Denda dapat dibayar secara tunai di basecamp atau melalui sistem pembayaran digital (Midtrans)[cite: 1].",
+                        darkBrown,
+                      ),
+                    ]),
+
+                    const SizedBox(height: 40),
+                    
+                    Text(
+                      "MAJELIS ADVENTURE HELP DESK",
+                      style: TextStyle(
+                        color: darkBrown.withOpacity(0.15),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.0,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-              Text(
-                'Pilihan Bantuan',
-                style: TextStyle(
-                  color: darkBrown,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _helpOption(
-                context,
-                title: 'Chat dengan Support',
-                subtitle: 'Tanya langsung lewat chat dalam aplikasi.',
-                icon: Icons.chat_bubble_outline,
-                color: goldenYellow,
-                onTap: () {},
-              ),
-              const SizedBox(height: 12),
-              _helpOption(
-                context,
-                title: 'Telepon Darurat',
-                subtitle: '+62 812 3456 7890',
-                icon: Icons.call_outlined,
-                color: darkBrown,
-                onTap: () {},
-              ),
-              const SizedBox(height: 12),
-              _helpOption(
-                context,
-                title: 'Email Support',
-                subtitle: 'support@majelisrental.co.id',
-                icon: Icons.email_outlined,
-                color: goldenYellow,
-                onTap: () {},
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const FAQScreen()),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: darkBrown,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+
+          // Glass Top Bar
+          _buildGlassTopBar(context, darkBrown),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET COMPONENTS ---
+
+  Widget _buildGlassTopBar(BuildContext context, Color db) {
+    return Positioned(
+      top: 0, left: 0, right: 0,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 50, 24, 15),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.85),
+              border: Border(bottom: BorderSide(color: db.withOpacity(0.05), width: 1)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: db.withOpacity(0.1)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.arrow_back_ios_new_rounded, color: db, size: 18),
                   ),
                 ),
-                child: const Text(
-                  'Lihat FAQ',
-                  style: TextStyle(fontWeight: FontWeight.w900),
+                Text(
+                  "PUSAT BANTUAN", 
+                  style: TextStyle(color: db, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2.5)
                 ),
-              ),
-            ],
+                const SizedBox(width: 40), 
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _helpOption(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: const Color.fromRGBO(62, 39, 35, 0.04),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
+  Widget _buildHelpHero(Color db) {
+    return Column(
+      children: [
+        Icon(Icons.live_help_rounded, color: db, size: 70),
+        const SizedBox(height: 16),
+        Text("Ada yang bisa dibantu?", style: TextStyle(color: db, fontSize: 22, fontWeight: FontWeight.w900)),
+        Text("Temukan jawaban instan untuk kendala Anda", style: TextStyle(color: db.withOpacity(0.4), fontSize: 13, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  Widget _buildSectionLabel(String label, Color db) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(left: 6, bottom: 14),
+      child: Text(label, style: TextStyle(color: db.withOpacity(0.3), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+    );
+  }
+
+  Widget _buildFaqGroup(Color db, List<Widget> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: db.withOpacity(0.1), width: 1.5),
+      ),
+      child: Column(children: items),
+    );
+  }
+
+  Widget _faqTile(String question, String answer, Color db) {
+    return Theme(
+      data: ThemeData().copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        title: Text(
+          question,
+          style: TextStyle(color: db, fontSize: 15, fontWeight: FontWeight.w800),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.14),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: color, size: 24),
+        iconColor: db,
+        collapsedIconColor: db.withOpacity(0.2),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Text(
+              answer,
+              style: TextStyle(color: db.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w600, height: 1.5),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Color.fromRGBO(62, 39, 35, 1),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Color.fromRGBO(62, 39, 35, 0.72),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: Color.fromRGBO(62, 39, 35, 0.35),
-              size: 16,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

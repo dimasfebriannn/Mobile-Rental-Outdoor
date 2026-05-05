@@ -18,7 +18,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.13.1 # Pastikan sejajar dengan flutter_test
+  flutter_launcher_icons: ^0.13.1 
+  image_picker: ^1.1.2
 
 # KONFIGURASI LOGO (Penting: Sejajar dengan dev_dependencies, bukan di dalamnya)
 flutter_launcher_icons:

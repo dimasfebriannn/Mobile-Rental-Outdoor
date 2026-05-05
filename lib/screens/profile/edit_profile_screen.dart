@@ -1,5 +1,5 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:majelis_adventure/models/app_state.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -9,390 +9,224 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _emailController;
-  late final TextEditingController _phoneController;
-  late final TextEditingController _addressController;
-  late final TextEditingController _ktpController;
-  late final TextEditingController _jobController;
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final profile = AppState.instance.profile;
-    _nameController = TextEditingController(text: profile.name);
-    _emailController = TextEditingController(text: profile.email);
-    _phoneController = TextEditingController(text: profile.phone);
-    _addressController = TextEditingController(text: profile.address);
-    _ktpController = TextEditingController(text: profile.ktp);
-    _jobController = TextEditingController(text: profile.job);
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _addressController.dispose();
-    _ktpController.dispose();
-    _jobController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveChanges() async {
-    if (_isSaving) return;
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 250));
-    AppState.instance.updateProfile(
-      name: _nameController.text,
-      email: _emailController.text,
-      phone: _phoneController.text,
-      address: _addressController.text,
-      ktp: _ktpController.text,
-      job: _jobController.text,
-    );
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Perubahan profil disimpan.')));
-
-    await Future.delayed(const Duration(milliseconds: 180));
-    if (mounted) Navigator.pop(context);
-  }
+  // Kontroler sesuai kolom tabel 'users' di DB
+  final TextEditingController _nameController = TextEditingController(text: "Dimas Dwinugroho");
+  final TextEditingController _emailController = TextEditingController(text: "dimasdwinugroho15@gmail.com");
+  final TextEditingController _phoneController = TextEditingController(text: "+62 ");
+  final TextEditingController _addressController = TextEditingController(text: "Jl. Gunung Mulia No. 15, Jember");
 
   @override
   Widget build(BuildContext context) {
-    final Color darkBrown = const Color(0xFF3E2723);
-    final Color goldenYellow = const Color(0xFFE5A93D);
-    final Color creamBg = const Color(0xFFF5EFE6);
-
-    final profile = AppState.instance.profile;
+    const Color darkBrown = Color(0xFF3E2723);
+    const Color goldenYellow = Color(0xFFE5A93D);
+    const Color creamBg = Color(0xFFF5EFE6);
 
     return Scaffold(
       backgroundColor: creamBg,
-      appBar: AppBar(
-        backgroundColor: creamBg,
-        elevation: 0,
-        foregroundColor: darkBrown,
-        title: const Text('Edit Profil'),
-      ),
       body: Stack(
         children: [
-          Positioned(
-            top: -90,
-            left: -60,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: goldenYellow.withOpacity(0.12),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 120,
-            right: -80,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: darkBrown.withOpacity(0.08),
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 520),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: Transform.translate(
-                    offset: Offset(0, (1 - value) * 18),
-                    child: child,
-                  ),
-                );
-              },
+          // 1. KONTEN UTAMA
+          Positioned.fill(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(24, 130, 24, 40),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color.fromRGBO(62, 39, 35, 0.08),
-                          blurRadius: 22,
-                          offset: const Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 70,
-                              height: 70,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: goldenYellow,
-                                  width: 2.5,
-                                ),
-                                image: const DecorationImage(
-                                  image: AssetImage(
-                                    'lib/assets/img/majelis.png',
-                                  ),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 18),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    profile.name,
-                                    style: TextStyle(
-                                      color: darkBrown,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    profile.email,
-                                    style: TextStyle(
-                                      color: darkBrown.withOpacity(0.68),
-                                      fontSize: 13,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: goldenYellow.withOpacity(0.14),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: darkBrown,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.verified,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Profil kamu aman dan siap digunakan.',
-                                  style: TextStyle(
-                                    color: darkBrown.withOpacity(0.9),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  // AVATAR EDITOR (Pencil di Tengah)
+                  _buildAvatarEditor(darkBrown, goldenYellow),
+
+                  const SizedBox(height: 45),
+
+                  // FORM INPUT
+                  _buildSectionLabel("DATA IDENTITAS EKSPEDISI", darkBrown),
+                  _buildCustomTextField(
+                    label: "NAMA LENGKAP",
+                    controller: _nameController,
+                    icon: Icons.person_rounded,
+                    color: darkBrown,
                   ),
-                  const SizedBox(height: 26),
-                  Text(
-                    'Detail Akun',
-                    style: TextStyle(
-                      color: darkBrown,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  _buildCustomTextField(
+                    label: "ALAMAT EMAIL (PERMANEN)",
+                    controller: _emailController,
+                    icon: Icons.lock_outline_rounded,
+                    color: darkBrown,
+                    isReadOnly: true, // Email tidak bisa diedit
                   ),
-                  const SizedBox(height: 14),
-                  _buildInputField('Nama Lengkap', _nameController, darkBrown),
-                  _buildInputField('Email', _emailController, darkBrown),
-                  _buildInputField(
-                    'Nomor Telepon',
-                    _phoneController,
-                    darkBrown,
+                  _buildCustomTextField(
+                    label: "NOMOR WHATSAPP",
+                    controller: _phoneController,
+                    icon: Icons.phone_android_rounded,
+                    color: darkBrown,
+                    keyboardType: TextInputType.phone,
                   ),
-                  _buildInputField('Alamat', _addressController, darkBrown),
-                  _buildInputField('Nomor KTP', _ktpController, darkBrown),
-                  _buildInputField('Pekerjaan', _jobController, darkBrown),
-                  const SizedBox(height: 24),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 20,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color.fromRGBO(62, 39, 35, 0.06),
-                          blurRadius: 18,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: goldenYellow.withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Icon(Icons.info_outline, color: goldenYellow),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            'Pastikan data profil kamu telah terisi dengan benar agar riwayat sewa dan pembayaran tetap sesuai.',
-                            style: TextStyle(
-                              color: darkBrown.withOpacity(0.75),
-                              fontSize: 13,
-                              height: 1.55,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _buildCustomTextField(
+                    label: "ALAMAT TINGGAL",
+                    controller: _addressController,
+                    icon: Icons.location_on_rounded,
+                    color: darkBrown,
+                    maxLines: 3,
                   ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _isSaving ? null : _saveChanges,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: darkBrown,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: darkBrown.withOpacity(0.65),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: AnimatedScale(
-                      duration: const Duration(milliseconds: 200),
-                      scale: _isSaving ? 0.98 : 1.0,
-                      curve: Curves.easeOutCubic,
-                      child: Center(
-                        child: _isSaving
-                            ? const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Menyimpan...',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : const Text(
-                                'Simpan Profil',
-                                style: TextStyle(fontWeight: FontWeight.w900),
-                              ),
-                      ),
-                    ),
-                  ),
+
+                  const SizedBox(height: 30),
+
+                  // ACTION BUTTON
+                  _buildSaveButton(darkBrown),
                 ],
               ),
             ),
           ),
+
+          // 2. GLASS TOP BAR
+          _buildGlassTopBar(context, darkBrown),
         ],
       ),
     );
   }
 
-  Widget _buildInputField(
-    String label,
-    TextEditingController controller,
-    Color textColor,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: textColor.withOpacity(0.75),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+  // --- WIDGET COMPONENTS ---
+
+  Widget _buildGlassTopBar(BuildContext context, Color db) {
+    return Positioned(
+      top: 0, left: 0, right: 0,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 50, 24, 15),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              border: Border(bottom: BorderSide(color: db.withOpacity(0.05), width: 1)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: db.withOpacity(0.1)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.arrow_back_ios_new_rounded, color: db, size: 16),
+                  ),
+                ),
+                Text(
+                  "UBAH PROFIL", 
+                  style: TextStyle(color: db, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 2)
+                ),
+                const SizedBox(width: 40), 
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: controller,
-            style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.w900,
-              fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarEditor(Color db, Color gy) {
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Lingkaran Foto
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: gy.withOpacity(0.2), width: 2),
             ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(color: textColor.withOpacity(0.15)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(color: textColor.withOpacity(0.15)),
-              ),
+            child: CircleAvatar(
+              radius: 60,
+              backgroundColor: db.withOpacity(0.1),
+              backgroundImage: const AssetImage('lib/assets/img/majelis.png'),
             ),
+          ),
+          // Overlay Gelap Transparan & Pensil di Tengah
+          Container(
+            width: 128, // Sesuai ukuran CircleAvatar + Padding
+            height: 128,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.edit_rounded, color: Colors.white, size: 30),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String label, Color db) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(left: 4, bottom: 16),
+      child: Text(
+        label,
+        style: TextStyle(color: db.withOpacity(0.3), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+      ),
+    );
+  }
+
+  Widget _buildCustomTextField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    required Color color,
+    bool isReadOnly = false,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextField(
+        controller: controller,
+        readOnly: isReadOnly,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
+        style: TextStyle(
+          color: isReadOnly ? color.withOpacity(0.4) : color, 
+          fontWeight: FontWeight.w700, 
+          fontSize: 15
+        ),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: isReadOnly ? color.withOpacity(0.02) : Colors.white,
+          labelText: label,
+          labelStyle: TextStyle(color: color.withOpacity(0.4), fontWeight: FontWeight.w800, fontSize: 10),
+          prefixIcon: Icon(icon, color: color.withOpacity(0.5), size: 18),
+          // Border saat normal
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: color.withOpacity(0.06), width: 1.5),
+          ),
+          // Border saat diklik (Dibuat halus / tidak mencolok)
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: color.withOpacity(0.2), width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSaveButton(Color db) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {},
+        style: ElevatedButton.styleFrom(
+          backgroundColor: db,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
+        ),
+        child: const Text(
+          "SIMPAN DATA TERBARU",
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 2),
+        ),
       ),
     );
   }
