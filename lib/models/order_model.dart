@@ -1,4 +1,6 @@
-enum OrderStatus { diproses, aktif, selesai, dibatalkan }
+enum OrderStatus { diproses, aktif, selesai, dibatalkan;
+
+  Object? toLowerCase() {} }
 
 class OrderModel {
   final String orderId;
@@ -16,6 +18,11 @@ class OrderModel {
     required this.status,
     required this.imagePath,
   });
+
+  String? get nomorTransaksi => null;
+  DateTime? get tanggalAmbil => null;
+  DateTime? get tanggalKembali => null;
+  double? get totalSewa => null;
 }
 
 final List<OrderModel> dummyOrders = [

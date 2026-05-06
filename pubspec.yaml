@@ -5,14 +5,18 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.0 # Pastikan versi SDK Flutter kamu cocok dengan ini
+  sdk: ^3.11.0 
 
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
-  intl: ^0.18.1
+  intl: ^0.20.2 
   url_launcher: ^6.2.5
+  provider: ^6.1.5+1
+  shared_preferences: ^2.3.5 
 
 dev_dependencies:
   flutter_test:
@@ -21,15 +25,13 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1 
   image_picker: ^1.1.2
 
-# KONFIGURASI LOGO (Penting: Sejajar dengan dev_dependencies, bukan di dalamnya)
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "lib/assets/img/majelis.png" # Lokasi logo barumu
+  image_path: "lib/assets/img/majelis.png" 
   min_sdk_android: 21
 
 flutter:
   uses-material-design: true
-
   assets:
     - lib/assets/img/majelis.png

@@ -1,5 +1,5 @@
 ﻿import 'package:flutter/material.dart';
-import 'screens/splash/splash_screen.dart'; // Import Splash Screen
+import 'screens/splash/splash_screen.dart'; 
 
 void main() {
   runApp(const MajelisRentalApp());
@@ -11,7 +11,7 @@ class MajelisRentalApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Majelis Rental',
+      title: 'Majelis Adventure', 
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: const Color(0xFF3E2723), // Dark Brown
@@ -19,11 +19,11 @@ class MajelisRentalApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF3E2723),
           primary: const Color(0xFF3E2723),
+          secondary: const Color(0xFFE5A93D), // Gold Accent
         ),
         fontFamily: 'Roboto', 
         useMaterial3: true,
       ),
-      // Ubah home menjadi SplashScreen
       home: const SplashScreen(), 
     );
   }

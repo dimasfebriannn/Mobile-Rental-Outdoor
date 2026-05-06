@@ -4,7 +4,6 @@ import 'package:majelis_adventure/screens/profile/account_security_screen.dart';
 import 'package:majelis_adventure/screens/profile/edit_profile_screen.dart';
 import 'package:majelis_adventure/screens/profile/help_center_screen.dart';
 import 'package:majelis_adventure/screens/profile/how_to_rent_screen.dart';
-import 'package:majelis_adventure/screens/profile/language_settings_screen.dart';
 import 'package:majelis_adventure/screens/profile/notification_settings_screen.dart';
 import 'package:majelis_adventure/screens/profile/service_complaint_screen.dart';
 import 'package:majelis_adventure/screens/profile/terms_conditions_screen.dart';
@@ -55,7 +54,6 @@ class ProfileScreen extends StatelessWidget {
                   _buildMenuGroup(darkBrown, [
                     _menuTile(context, Icons.person_outline_rounded, "Ubah Informasi Profil", const EditProfileScreen(), darkBrown),
                     _menuTile(context, Icons.security_rounded, "Keamanan & Autentikasi", const AccountSecurityScreen(), darkBrown),
-                    _menuTile(context, Icons.translate_rounded, "Bahasa / Language", const LanguageSettingsScreen(), darkBrown),
                     _menuTile(context, Icons.notifications_none_rounded, "Notifikasi", const NotificationSettingsScreen(), darkBrown),
                   ]),
 

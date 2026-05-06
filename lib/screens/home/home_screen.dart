@@ -1,12 +1,14 @@
-import 'dart:async'; 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:majelis_adventure/screens/chat/chat_screen.dart';
+import 'package:majelis_adventure/screens/home/notification_screen.dart';
 import 'package:majelis_adventure/screens/profile/profile_screen.dart';
 import '../../widgets/product_card.dart';
 import '../../models/product.dart';
-import '../history/history_screen.dart'; 
+import '../history/history_screen.dart';
 import 'detail_screen.dart';
+import 'cart_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int _selectedIndex = 0;
   int _currentPromoIndex = 0;
-  
+
   // Logic untuk Unlimited Slide
   late PageController _pageController;
   Timer? _timer;
@@ -33,22 +35,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Map<String, String>> promos = [
     {
-      "image": "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?q=80&w=1000",
+      "image":
+          "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?q=80&w=1000",
       "tag": "SPECIAL OFFER",
       "title": "Diskon Member Baru",
-      "desc": "Potongan 20% sewa pertama"
+      "desc": "Potongan 20% sewa pertama",
     },
     {
-      "image": "https://images.unsplash.com/photo-1537225228614-56cc3556d7ed?q=80&w=1000",
+      "image":
+          "https://images.unsplash.com/photo-1537225228614-56cc3556d7ed?q=80&w=1000",
       "tag": "BEST DEAL",
       "title": "Paket Pendaki Hemat",
-      "desc": "Tenda + Carrier + Matras"
+      "desc": "Tenda + Carrier + Matras",
     },
     {
-      "image": "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=1000",
+      "image":
+          "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=1000",
       "tag": "WEEKEND PROMO",
       "title": "Promo Akhir Pekan",
-      "desc": "Sewa 3 hari, bayar 2 hari"
+      "desc": "Sewa 3 hari, bayar 2 hari",
     },
   ];
 
@@ -56,10 +61,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _filteredProducts = allProducts;
-    
+
     // Inisialisasi PageController untuk unlimited loop
     _pageController = PageController(initialPage: 500, viewportFraction: 1.0);
-    
+
     // Timer Auto-Slide otomatis setiap 3 detik
     _timer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
       _pageController.nextPage(
@@ -73,7 +78,8 @@ class _HomeScreenState extends State<HomeScreen> {
     String query = _searchController.text.toLowerCase();
     setState(() {
       _filteredProducts = allProducts.where((product) {
-        final matchCategory = _activeCategory == "Semua" || product.category == _activeCategory;
+        final matchCategory =
+            _activeCategory == "Semua" || product.category == _activeCategory;
         final matchQuery = product.name.toLowerCase().contains(query);
         return matchCategory && matchQuery;
       }).toList();
@@ -90,11 +96,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBody() {
     switch (_selectedIndex) {
-      case 0: return _buildCatalogPage();
-      case 1: return const HistoryScreen();
-      case 2: return const ChatScreen();
-      case 3: return const ProfileScreen();
-      default: return _buildCatalogPage();
+      case 0:
+        return _buildCatalogPage();
+      case 1:
+        return const HistoryScreen();
+      case 2:
+        return const ChatScreen();
+      case 3:
+        return const ProfileScreen();
+      default:
+        return _buildCatalogPage();
     }
   }
 
@@ -102,12 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: latarKrem,
-      body: Stack(
-        children: [
-          _buildBody(),
-          _buildBottomNavBar(),
-        ],
-      ),
+      body: Stack(children: [_buildBody(), _buildBottomNavBar()]),
     );
   }
 
@@ -117,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
       slivers: [
         SliverToBoxAdapter(child: _buildLuxuryHeader()),
         SliverToBoxAdapter(child: _buildSleekSearchBar()),
-        
+
         // --- PROMO BANNER REVISI: LANCIP & AUTO-SLIDE ---
         SliverToBoxAdapter(child: _buildPromoBanner()),
 
@@ -129,8 +135,14 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Katalog Unggulan", 
-                  style: TextStyle(color: cokelatTua, fontSize: 18, fontWeight: FontWeight.w900)),
+                Text(
+                  "Katalog Unggulan",
+                  style: TextStyle(
+                    color: cokelatTua,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 Icon(Icons.tune_rounded, color: emasMajelis, size: 20),
               ],
             ),
@@ -142,8 +154,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 50),
-                    child: Text("Peralatan tidak ditemukan", 
-                      style: TextStyle(color: cokelatTua.withOpacity(0.3))),
+                    child: Text(
+                      "Peralatan tidak ditemukan",
+                      style: TextStyle(color: cokelatTua.withOpacity(0.3)),
+                    ),
                   ),
                 ),
               )
@@ -151,31 +165,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, 
-                    crossAxisSpacing: 16, 
-                    mainAxisSpacing: 16, 
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
                     childAspectRatio: 0.72,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final product = _filteredProducts[index];
-                      return ProductCard(
-                        product: product,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              transitionDuration: const Duration(milliseconds: 400),
-                              pageBuilder: (context, anim, _) => DetailScreen(product: product),
-                              transitionsBuilder: (context, anim, _, child) => 
-                                  FadeTransition(opacity: anim, child: child),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final product = _filteredProducts[index];
+                    return ProductCard(
+                      product: product,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            transitionDuration: const Duration(
+                              milliseconds: 400,
                             ),
-                          );
-                        },
-                      );
-                    },
-                    childCount: _filteredProducts.length,
-                  ),
+                            pageBuilder: (context, anim, _) =>
+                                DetailScreen(product: product),
+                            transitionsBuilder: (context, anim, _, child) =>
+                                FadeTransition(opacity: anim, child: child),
+                          ),
+                        );
+                      },
+                    );
+                  }, childCount: _filteredProducts.length),
                 ),
               ),
         const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -193,14 +207,44 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("MAJELIS ADVENTURE", style: TextStyle(color: emasMajelis, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                Text("Halo, Dimas", style: TextStyle(color: cokelatTua, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                Text(
+                  "MAJELIS ADVENTURE",
+                  style: TextStyle(
+                    color: emasMajelis,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+                Text(
+                  "Halo, Dimas",
+                  style: TextStyle(
+                    color: cokelatTua,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
               ],
             ),
           ),
-          _buildHeaderIcon(Icons.shopping_bag_outlined, 2), 
+
+          _buildHeaderIcon(Icons.shopping_bag_outlined, 2, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CartScreen()),
+            );
+          }),
+
           const SizedBox(width: 12),
-          _buildHeaderIcon(Icons.notifications_none_rounded, 5),
+
+          _buildHeaderIcon(Icons.notifications_none_rounded, 5, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const NotificationScreen()),
+            );
+          }),
+
           const SizedBox(width: 12),
           CircleAvatar(
             radius: 20,
@@ -212,27 +256,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeaderIcon(IconData icon, int count) {
-    return Stack(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: cokelatTua.withOpacity(0.05)),
-          ),
-          child: Icon(icon, color: cokelatTua, size: 22),
-        ),
-        if (count > 0)
-          Positioned(
-            right: 4, top: 4,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: emasMajelis, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
-              child: Text(count.toString(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+  // Update fungsi _buildHeaderIcon agar menerima VoidCallback
+  Widget _buildHeaderIcon(IconData icon, int count, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap, // Menambahkan fungsi klik di sini
+      child: Stack(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: cokelatTua.withOpacity(0.05)),
             ),
+            child: Icon(icon, color: cokelatTua, size: 22),
           ),
-      ],
+          if (count > 0)
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: emasMajelis,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -251,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
             // itemCount sangat besar untuk simulasi unlimited
-            itemCount: 10000, 
+            itemCount: 10000,
             itemBuilder: (context, index) {
               final promo = promos[index % promos.length];
               return Container(
@@ -275,9 +335,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(promo['tag']!, style: TextStyle(color: emasMajelis, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                      Text(promo['title']!, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text(promo['desc']!, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
+                      Text(
+                        promo['tag']!,
+                        style: TextStyle(
+                          color: emasMajelis,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      Text(
+                        promo['title']!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        promo['desc']!,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -296,7 +377,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 6,
                   width: _currentPromoIndex == i ? 18 : 6,
                   decoration: BoxDecoration(
-                    color: _currentPromoIndex == i ? Colors.white : Colors.white.withOpacity(0.4),
+                    color: _currentPromoIndex == i
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 );
@@ -323,7 +406,10 @@ class _HomeScreenState extends State<HomeScreen> {
         onChanged: (value) => _runFilter(),
         decoration: InputDecoration(
           hintText: "Cari perlengkapan gunung...",
-          hintStyle: TextStyle(color: cokelatTua.withOpacity(0.3), fontSize: 14),
+          hintStyle: TextStyle(
+            color: cokelatTua.withOpacity(0.3),
+            fontSize: 14,
+          ),
           prefixIcon: Icon(Icons.search_rounded, color: cokelatTua, size: 20),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 13),
@@ -345,7 +431,10 @@ class _HomeScreenState extends State<HomeScreen> {
           bool isActive = _activeCategory == cats[index];
           return GestureDetector(
             onTap: () {
-              setState(() { _activeCategory = cats[index]; _runFilter(); });
+              setState(() {
+                _activeCategory = cats[index];
+                _runFilter();
+              });
             },
             child: Container(
               margin: const EdgeInsets.only(right: 8),
@@ -353,10 +442,21 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 color: isActive ? cokelatTua : Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isActive ? cokelatTua : cokelatTua.withOpacity(0.1)),
+                border: Border.all(
+                  color: isActive ? cokelatTua : cokelatTua.withOpacity(0.1),
+                ),
               ),
               child: Center(
-                child: Text(cats[index], style: TextStyle(color: isActive ? Colors.white : cokelatTua.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.w900)),
+                child: Text(
+                  cats[index],
+                  style: TextStyle(
+                    color: isActive
+                        ? Colors.white
+                        : cokelatTua.withOpacity(0.5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ),
             ),
           );
@@ -367,7 +467,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBottomNavBar() {
     return Positioned(
-      bottom: 0, left: 0, right: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
       child: Container(
         height: 90,
         decoration: BoxDecoration(
@@ -401,11 +503,25 @@ class _HomeScreenState extends State<HomeScreen> {
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(color: isActive ? cokelatTua : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: isActive ? Colors.white : cokelatTua.withOpacity(0.3), size: 22),
+              decoration: BoxDecoration(
+                color: isActive ? cokelatTua : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: isActive ? Colors.white : cokelatTua.withOpacity(0.3),
+                size: 22,
+              ),
             ),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: isActive ? cokelatTua : cokelatTua.withOpacity(0.3), fontSize: 10, fontWeight: isActive ? FontWeight.w900 : FontWeight.bold)),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? cokelatTua : cokelatTua.withOpacity(0.3),
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w900 : FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),

@@ -38,27 +38,27 @@ class HelpCenterScreen extends StatelessWidget {
                     _buildFaqGroup(darkBrown, [
                       _faqTile(
                         "Bagaimana sistem jaminan identitas?",
-                        "Penyewa wajib mengunggah foto KTP, SIM, atau Kartu Pelajar. Data ini akan diproses di tabel jaminan identitas sebagai syarat verifikasi[cite: 1].",
+                        "Penyewa wajib mengunggah foto KTP, SIM, atau Kartu Pelajar. Data ini akan diproses di tabel jaminan identitas sebagai syarat verifikasi.",
                         darkBrown,
                       ),
                       _faqTile(
                         "Berapa biaya denda keterlambatan?",
-                        "Denda keterlambatan dihitung otomatis sebesar 50% dari total biaya sewa per hari sesuai data di tabel denda[cite: 1].",
+                        "Denda keterlambatan dihitung otomatis sebesar 50% dari total biaya sewa per hari sesuai data di tabel denda.",
                         darkBrown,
                       ),
                       _faqTile(
                         "Mengapa pesanan COD saya dibatalkan?",
-                        "Sistem membatalkan pesanan tunai (COD) secara otomatis jika pembayaran tidak dilakukan dalam waktu 24 jam[cite: 1].",
+                        "Sistem membatalkan pesanan tunai (COD) secara otomatis jika pembayaran tidak dilakukan dalam waktu 24 jam.",
                         darkBrown,
                       ),
                       _faqTile(
                         "Apa yang terjadi jika barang rusak?",
-                        "Admin akan mencatat jenis kerusakan di tabel denda dan menentukan jumlah biaya ganti rugi yang harus dibayar[cite: 1].",
+                        "Admin akan mencatat jenis kerusakan di tabel denda dan menentukan jumlah biaya ganti rugi yang harus dibayar.",
                         darkBrown,
                       ),
                       _faqTile(
                         "Bagaimana cara pembayaran denda?",
-                        "Denda dapat dibayar secara tunai di basecamp atau melalui sistem pembayaran digital (Midtrans)[cite: 1].",
+                        "Denda dapat dibayar secara tunai di basecamp atau melalui sistem pembayaran digital (Midtrans).",
                         darkBrown,
                       ),
                     ]),

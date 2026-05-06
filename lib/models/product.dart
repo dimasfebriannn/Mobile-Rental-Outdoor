@@ -12,6 +12,12 @@ class Product {
     required this.imagePath,
     this.rating = "4.8",
   });
+
+  String? get specification => null;
+
+  String? get description => null;
+
+  get stock => null;
 }
 
 // DATA DUMMY: Bisa kamu tambah atau hapus sesuai stok alat

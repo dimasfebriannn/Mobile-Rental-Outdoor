@@ -1,5 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'security/change_password_screen.dart';
+import 'security/otp_verification_screen.dart';
+import 'security/google_account_screen.dart';
 
 class AccountSecurityScreen extends StatelessWidget {
   const AccountSecurityScreen({super.key});
@@ -7,7 +10,6 @@ class AccountSecurityScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const Color darkBrown = Color(0xFF3E2723);
-    const Color goldenYellow = Color(0xFFE5A93D);
     const Color creamBg = Color(0xFFF5EFE6);
 
     return Scaffold(
@@ -33,12 +35,35 @@ class AccountSecurityScreen extends StatelessWidget {
 
                     const SizedBox(height: 50),
 
-                    // GRUP KEAMANAN (Berbasis Struktur DB)
+                    // GRUP KEAMANAN (Klik Aktif)
                     _buildSectionLabel("KEAMANAN AKSES", darkBrown),
                     _buildDenseGroup(darkBrown, [
-                      _securityTile(context, Icons.lock_open_rounded, "Ubah Kata Sandi", "Kelola password akun Anda", darkBrown),
-                      _securityTile(context, Icons.verified_user_rounded, "Verifikasi OTP", "Status email & kode OTP", darkBrown),
-                      _securityTile(context, Icons.g_mobiledata_rounded, "Akun Google", "Status: Terhubung", darkBrown, isTrailingText: true, trailingText: "AKTIF"),
+                      _securityTile(
+                        context, 
+                        Icons.lock_open_rounded, 
+                        "Ubah Kata Sandi", 
+                        "Kelola password akun Anda",
+                        darkBrown, 
+                        const ChangePasswordScreen(), // Navigasi ke Layar Ubah Sandi
+                      ),
+                      _securityTile(
+                        context, 
+                        Icons.verified_user_rounded, 
+                        "Verifikasi OTP", 
+                        "Status email & kode OTP",
+                        darkBrown, 
+                        const OtpVerificationScreen(), // Navigasi ke Layar OTP
+                      ),
+                      _securityTile(
+                        context, 
+                        Icons.g_mobiledata_rounded, 
+                        "Akun Google", 
+                        "Status: Terhubung",
+                        darkBrown, 
+                        const GoogleAccountScreen(), // Navigasi ke Layar Google
+                        isTrailingText: true, 
+                        trailingText: "AKTIF",
+                      ),
                     ]),
 
                     const SizedBox(height: 40),
@@ -58,12 +83,14 @@ class AccountSecurityScreen extends StatelessWidget {
             ),
           ),
 
-          // Glass Top Bar (Konsisten dengan Edit Profile)
+          // Glass Top Bar
           _buildGlassTopBar(context, darkBrown),
         ],
       ),
     );
   }
+
+  // --- WIDGET COMPONENTS ---
 
   Widget _buildGlassTopBar(BuildContext context, Color db) {
     return Positioned(
@@ -74,7 +101,7 @@ class AccountSecurityScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(24, 50, 24, 15),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withOpacity(0.85),
               border: Border(bottom: BorderSide(color: db.withOpacity(0.05), width: 1)),
             ),
             child: Row(
@@ -88,12 +115,12 @@ class AccountSecurityScreen extends StatelessWidget {
                       border: Border.all(color: db.withOpacity(0.1)),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.arrow_back_ios_new_rounded, color: db, size: 16),
+                    child: Icon(Icons.arrow_back_ios_new_rounded, color: db, size: 18),
                   ),
                 ),
                 Text(
                   "KEAMANAN AKUN", 
-                  style: TextStyle(color: db, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 2)
+                  style: TextStyle(color: db, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2.5)
                 ),
                 const SizedBox(width: 40), 
               ],
@@ -134,8 +161,17 @@ class AccountSecurityScreen extends StatelessWidget {
     );
   }
 
-  Widget _securityTile(BuildContext context, IconData icon, String title, String subtitle, Color db, {bool isTrailingText = false, String trailingText = ""}) {
+  Widget _securityTile(
+    BuildContext context, 
+    IconData icon, 
+    String title, 
+    String subtitle, 
+    Color db, 
+    Widget targetPage, // Parameter baru untuk halaman tujuan
+    {bool isTrailingText = false, String trailingText = ""}
+  ) {
     return ListTile(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => targetPage)),
       leading: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(color: db.withOpacity(0.04), borderRadius: BorderRadius.circular(14)),

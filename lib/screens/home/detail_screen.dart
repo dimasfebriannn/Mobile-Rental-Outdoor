@@ -17,60 +17,29 @@ class _DetailScreenState extends State<DetailScreen> {
   final Color goldenYellow = const Color(0xFFE5A93D);
   final Color creamBg = const Color(0xFFF5EFE6);
 
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now().add(const Duration(days: 1));
-  bool _isBooking = false;
+  bool _isAdding = false;
 
-  // --- LOGIKA PICKER TANGGAL TUNGGAL ---
-  Future<void> _pickDate(BuildContext context, bool isStart) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStart ? _startDate : _endDate,
-      firstDate: isStart ? DateTime.now() : _startDate.add(const Duration(days: 1)),
-      lastDate: DateTime.now().add(const Duration(days: 90)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: darkBrown,
-              onPrimary: Colors.white,
-              onSurface: darkBrown,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = picked;
-          // Validasi agar tanggal kembali minimal H+1 dari tanggal ambil
-          if (_startDate.isAfter(_endDate) || _startDate.isAtSameMomentAs(_endDate)) {
-            _endDate = _startDate.add(const Duration(days: 1));
-          }
-        } else {
-          _endDate = picked;
-        }
-      });
-    }
+  String _formatCurrency(double amount) {
+    return NumberFormat.currency(
+      locale: 'id',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    ).format(amount);
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat('dd MMM yyyy').format(date);
-  }
-
-  void _handleSewa(int totalDays, String totalPrice) {
-    setState(() => _isBooking = true);
-    Future.delayed(const Duration(seconds: 2), () {
+  // --- LOGIKA TAMBAH KERANJANG (SEDERHANA) ---
+  void _handleAddToCart() {
+    setState(() => _isAdding = true);
+    
+    // Simulasi loading proses input ke tabel 'transaksi_detail'
+    Future.delayed(const Duration(milliseconds: 800), () {
       if (!mounted) return;
-      setState(() => _isBooking = false);
-      _showSuccessSheet(totalDays, totalPrice);
+      setState(() => _isAdding = false);
+      _showSuccessSheet();
     });
   }
 
-  void _showSuccessSheet(int days, String price) {
+  void _showSuccessSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -83,26 +52,30 @@ class _DetailScreenState extends State<DetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 60),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.shopping_cart_checkout_rounded, color: Colors.green, size: 40),
+            ),
             const SizedBox(height: 24),
-            Text("Berhasil Dipesan!", style: TextStyle(color: darkBrown, fontSize: 24, fontWeight: FontWeight.w900)),
+            Text("Masuk Keranjang", style: TextStyle(color: darkBrown, fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 12),
             Text(
-              "Pesanan untuk ${widget.product.name} telah masuk ke keranjang untuk tanggal ${_formatDate(_startDate)}.",
+              "${widget.product.name} telah berhasil ditambahkan. Atur jumlah sewa di menu keranjang.",
               textAlign: TextAlign.center,
-              style: TextStyle(color: darkBrown.withOpacity(0.6), fontSize: 14),
+              style: TextStyle(color: darkBrown.withOpacity(0.5), fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
-              height: 56,
+              height: 58,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: darkBrown, 
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                  backgroundColor: darkBrown,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 ),
-                child: const Text("TUTUP", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text("LANJUTKAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
               ),
             ),
           ],
@@ -113,16 +86,9 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Hitung durasi hari
-    int totalDays = _endDate.difference(_startDate).inDays;
-    if (totalDays <= 0) totalDays = 1;
-
-    int priceInt = int.parse(widget.product.price.replaceAll('.', ''));
-    String totalPriceFormatted = NumberFormat.currency(
-      locale: 'id', 
-      symbol: 'Rp ', 
-      decimalDigits: 0
-    ).format(priceInt * totalDays);
+    // Mapping data harga dan stok dari tabel 'barang'
+    final double hargaPerHari = double.tryParse(widget.product.price.replaceAll('.', '')) ?? 0.0;
+    const int stokTersedia = 120; // Contoh data stok dari tabel barang
 
     return Scaffold(
       backgroundColor: creamBg,
@@ -133,8 +99,8 @@ class _DetailScreenState extends State<DetailScreen> {
             top: 0, left: 0, right: 0,
             height: MediaQuery.of(context).size.height * 0.5,
             child: Hero(
-              tag: widget.product.name, 
-              child: Image.asset(widget.product.imagePath, fit: BoxFit.contain)
+              tag: widget.product.name,
+              child: Image.asset(widget.product.imagePath, fit: BoxFit.contain),
             ),
           ),
 
@@ -158,22 +124,21 @@ class _DetailScreenState extends State<DetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHeader(), // Tanpa Rating
-                        const SizedBox(height: 32),
-                        Text("Periode Sewa", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 16)),
-                        const SizedBox(height: 16),
+                        _buildHeader(),
+                        const SizedBox(height: 24),
+                        _buildQuickInfo(hargaPerHari, stokTersedia),
                         
-                        // DUAL DATE SELECTOR (MODEL BARU)
-                        _buildDualDateSelectors(),
+                        const SizedBox(height: 32),
+                        Text("Spesifikasi Produk", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 16)),
+                        const SizedBox(height: 12),
+                        _buildSpecList(),
 
                         const SizedBox(height: 32),
-                        _buildDynamicSpecs(),
-                        const SizedBox(height: 32),
                         Text("Deskripsi", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 16)),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
                         Text(
-                          "Peralatan ekspedisi kualitas premium yang selalu disterilisasi sebelum dan sesudah penggunaan. Jaminan kenyamanan pendakian Anda.",
-                          style: TextStyle(color: darkBrown.withOpacity(0.6), height: 1.6, fontSize: 14),
+                          "Peralatan ekspedisi dari Majelis Adventure ini selalu dalam kondisi steril dan siap tempur. Jaminan keamanan untuk setiap langkah pendakian Anda sesuai standar operasional kami.",
+                          style: TextStyle(color: darkBrown.withOpacity(0.6), height: 1.6, fontSize: 14, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -184,78 +149,14 @@ class _DetailScreenState extends State<DetailScreen> {
           ),
 
           _buildBackButton(),
-          _buildFloatingBottomBar(totalDays, totalPriceFormatted),
+          _buildFloatingBottomBar(hargaPerHari),
         ],
       ),
     );
   }
 
-  // --- WIDGET DUAL DATE SELECTOR ---
-  Widget _buildDualDateSelectors() {
-    return Row(
-      children: [
-        Expanded(child: _datePickerCard("AMBIL", _startDate, true)),
-        const SizedBox(width: 12),
-        Expanded(child: _datePickerCard("KEMBALI", _endDate, false)),
-      ],
-    );
-  }
-
-  Widget _datePickerCard(String label, DateTime date, bool isStart) {
-    return InkWell(
-      onTap: () => _pickDate(context, isStart),
-      borderRadius: BorderRadius.circular(15),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: creamBg.withOpacity(0.4),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: darkBrown.withOpacity(0.05)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: TextStyle(color: goldenYellow, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(Icons.calendar_today_outlined, size: 14, color: darkBrown),
-                const SizedBox(width: 8),
-                Text(_formatDate(date), style: TextStyle(color: darkBrown, fontSize: 13, fontWeight: FontWeight.w800)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(widget.product.category.toUpperCase(), style: TextStyle(color: goldenYellow, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2)),
-        const SizedBox(height: 8),
-        Text(widget.product.name, style: TextStyle(color: darkBrown, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1)),
-      ],
-    );
-  }
-
-  Widget _buildBackButton() {
-    return Positioned(
-      top: 50, left: 24,
-      child: GestureDetector(
-        onTap: () => Navigator.pop(context),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)]),
-          child: Icon(Icons.arrow_back_ios_new_rounded, color: darkBrown, size: 18),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFloatingBottomBar(int days, String price) {
+  // --- FLOATING BAR ---
+  Widget _buildFloatingBottomBar(double price) {
     return Positioned(
       bottom: 0, left: 0, right: 0,
       child: Container(
@@ -271,24 +172,27 @@ class _DetailScreenState extends State<DetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Total ($days Hari)", style: TextStyle(color: darkBrown.withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w900)),
-                Text(price, style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 22)),
+                Text("HARGA SEWA", style: TextStyle(color: darkBrown.withOpacity(0.4), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                Text("${_formatCurrency(price)}/hari", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 18)),
               ],
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 24),
             Expanded(
               child: SizedBox(
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: _isBooking ? null : () => _handleSewa(days, price),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: darkBrown, 
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), 
-                    elevation: 0
-                  ),
-                  child: _isBooking 
+                height: 58,
+                child: ElevatedButton.icon(
+                  onPressed: _isAdding ? null : _handleAddToCart,
+                  icon: _isAdding 
+                    ? const SizedBox.shrink() 
+                    : const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 20),
+                  label: _isAdding
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text("SEWA SEKARANG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                    : const Text("TAMBAH KERANJANG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: darkBrown,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    elevation: 0,
+                  ),
                 ),
               ),
             ),
@@ -298,24 +202,79 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  Widget _buildDynamicSpecs() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // --- REUSE COMPONENTS ---
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _specItem(Icons.verified_user_outlined, "Official"),
-        _specItem(Icons.cleaning_services_outlined, "Steril"),
-        _specItem(Icons.fitness_center_rounded, "Pro Gear"),
+        Text(widget.product.category.toUpperCase(), style: TextStyle(color: goldenYellow, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2)),
+        const SizedBox(height: 8),
+        Text(widget.product.name, style: TextStyle(color: darkBrown, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1)),
       ],
     );
   }
 
-  Widget _specItem(IconData icon, String text) {
+  Widget _buildQuickInfo(double price, int stock) {
     return Row(
       children: [
-        Icon(icon, color: goldenYellow, size: 16),
-        const SizedBox(width: 8),
-        Text(text, style: TextStyle(color: darkBrown, fontSize: 13, fontWeight: FontWeight.w700)),
+        _infoCard(Icons.payments_outlined, "TARIF HARIAN", _formatCurrency(price)),
+        const SizedBox(width: 12),
+        _infoCard(Icons.inventory_2_outlined, "STOK UNIT", "$stock"),
       ],
+    );
+  }
+
+  Widget _infoCard(IconData icon, String label, String value) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: creamBg.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: darkBrown.withOpacity(0.05)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(icon, size: 13, color: goldenYellow),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(color: darkBrown.withOpacity(0.4), fontSize: 9, fontWeight: FontWeight.w900)),
+            ]),
+            const SizedBox(height: 8),
+            Text(value, style: TextStyle(color: darkBrown, fontSize: 14, fontWeight: FontWeight.w900)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpecList() {
+    // Contoh spesifikasi yang merujuk pada detail teknis di tabel barang[cite: 1]
+    final List<String> specs = ["Kualitas Premium", "Sterilisasi Rutin", "Ketahanan Cuaca Ekstrem", "Ringan & Ergonomis"];
+    return Column(
+      children: specs.map((s) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Icon(Icons.verified_outlined, color: goldenYellow, size: 16),
+          const SizedBox(width: 12),
+          Text(s, style: TextStyle(color: darkBrown.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w700)),
+        ]),
+      )).toList(),
+    );
+  }
+
+  Widget _buildBackButton() {
+    return Positioned(
+      top: 50, left: 24,
+      child: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)]),
+          child: Icon(Icons.arrow_back_ios_new_rounded, color: darkBrown, size: 18),
+        ),
+      ),
     );
   }
 }
