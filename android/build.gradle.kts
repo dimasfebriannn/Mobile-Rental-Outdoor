@@ -1,3 +1,14 @@
+// Tambahkan buildscript agar plugin google-services bisa ditemukan
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.google.gms:google-services:4.4.2")
+    }
+}
+
 allprojects {
     repositories {
         google()

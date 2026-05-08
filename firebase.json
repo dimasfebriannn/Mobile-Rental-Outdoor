@@ -1,0 +1,25 @@
+{
+    "flutter": {
+        "platforms": {
+            "android": {
+                "default": {
+                    "projectId": "majelis-rental",
+                    "appId": "1:443174553074:android:ce495110616f500d8dd76b",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "majelis-rental",
+                    "configurations": {
+                        "android": "1:443174553074:android:ce495110616f500d8dd76b",
+                        "ios": "1:443174553074:ios:5a8762937e674fcd8dd76b",
+                        "macos": "1:443174553074:ios:5a8762937e674fcd8dd76b",
+                        "web": "1:443174553074:web:21cbaf4bdde08cca8dd76b",
+                        "windows": "1:443174553074:web:21cbaf4bdde08cca8dd76b"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "443174553074",
+    "project_id": "majelis-rental",
+    "storage_bucket": "majelis-rental.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:443174553074:android:ce495110616f500d8dd76b",
+        "android_client_info": {
+          "package_name": "com.example.rental_outdoor_mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "443174553074-2p8e3h7gvfu5qum43kiu162ssm1q1rl3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.rental_outdoor_mobile",
+            "certificate_hash": "975214cde97e32040b289fa904a3fbd582f2011c"
+          }
+        },
+        {
+          "client_id": "443174553074-mrr0u2fitovbe3a24u008n85eencs3j3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9PqWjSzMJhVcdUjiLg2RwXdV4EK-fFuM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "443174553074-mrr0u2fitovbe3a24u008n85eencs3j3.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "443174553074-cuvnnlco5e7c8eglmciitvo69jp1o4rb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.rentalOutdoorMobile"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

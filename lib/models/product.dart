@@ -1,32 +1,79 @@
+// lib/models/product.dart
+import '../config/api_config.dart';
+
 class Product {
+  final int id;
   final String name;
-  final String price;
+  final double hargaPerHari;
   final String category;
-  final String imagePath;
+  final String? fotoUtama;
+  final List<String> foto;
   final String rating;
+  final int stok;
+  final String? description;
+  final String? specification;
+  final List<String> tags;
 
   Product({
+    required this.id,
     required this.name,
-    required this.price,
+    required this.hargaPerHari,
     required this.category,
-    required this.imagePath,
-    this.rating = "4.8",
+    this.fotoUtama,
+    this.foto = const [],
+    this.rating = '4.8',
+    this.stok = 0,
+    this.description,
+    this.specification,
+    this.tags = const [],
   });
 
-  String? get specification => null;
+  /// Format harga untuk tampilan: "75.000"
+  String get price {
+    return hargaPerHari
+        .toStringAsFixed(0)
+        .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]}.',
+        );
+  }
 
-  String? get description => null;
+  /// Foto pertama yang tersedia, fallback ke string kosong
+  String get imageUrl => fotoUtama ?? '';
 
-  get stock => null;
+  // ── Ganti base URL lokal (127.0.0.1 / localhost) → base URL aktif ─────────
+  // Ini mengatasi kasus API masih return http://127.0.0.1:8000/storage/...
+  // padahal device harus akses lewat ngrok / produksi.
+  static String _fixImageUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+
+    // Base URL tanpa "/api" → misal https://xxx.ngrok-free.app
+    final appBase = ApiConfig.baseUrl.replaceFirst(RegExp(r'/api$'), '');
+
+    // Ganti pola http://127.0.0.1:PORT atau http://localhost:PORT
+    return raw.replaceFirst(
+      RegExp(r'https?://(127\.0\.0\.1|localhost)(:\d+)?'),
+      appBase,
+    );
+  }
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product(
+      id:            json['id'] as int,
+      name:          json['nama'] as String,
+      hargaPerHari:  (json['harga_per_hari'] as num).toDouble(),
+      category:      json['kategori'] as String,
+      fotoUtama:     _fixImageUrl(json['foto_utama'] as String?),
+      foto:          (json['foto'] as List<dynamic>?)
+                         ?.map((e) => _fixImageUrl(e.toString()))
+                         .toList() ?? [],
+      rating:        json['rating']?.toString() ?? '4.8',
+      stok:          json['stok'] as int? ?? 0,
+      description:   json['deskripsi'] as String?,
+      specification: json['spesifikasi'] as String?,
+      tags:          (json['tags'] as List<dynamic>?)
+                         ?.map((e) => e.toString())
+                         .toList() ?? [],
+    );
+  }
 }
-
-// DATA DUMMY: Bisa kamu tambah atau hapus sesuai stok alat
-final List<Product> allProducts = [
-  Product(name: "Tenda Eiger 4P", price: "75.000", category: "Tenda", imagePath: 'lib/assets/img/majelis.png'),
-  Product(name: "Carrier Osprey 60L", price: "55.000", category: "Carrier", imagePath: 'lib/assets/img/majelis.png'),
-  Product(name: "Sepatu Consina", price: "30.000", category: "Sepatu", imagePath: 'lib/assets/img/majelis.png'),
-  Product(name: "Lampu Tenda Petzl", price: "15.000", category: "Lampu", imagePath: 'lib/assets/img/majelis.png'),
-  Product(name: "Kompor Portable", price: "20.000", category: "Alat Masak", imagePath: 'lib/assets/img/majelis.png'),
-  Product(name: "Tenda Dome 2P", price: "40.000", category: "Tenda", imagePath: 'lib/assets/img/majelis.png'),
-  Product(name: "Carrier Deuter 45L", price: "45.000", category: "Carrier", imagePath: 'lib/assets/img/majelis.png'),
-];

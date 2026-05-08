@@ -1,11 +1,11 @@
-import 'dart:ui';
+// lib/screens/home/detail_screen.dart
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
+import '../../services/barang_service.dart';
 import 'package:intl/intl.dart';
 
 class DetailScreen extends StatefulWidget {
   final Product product;
-
   const DetailScreen({super.key, required this.product});
 
   @override
@@ -13,25 +13,58 @@ class DetailScreen extends StatefulWidget {
 }
 
 class _DetailScreenState extends State<DetailScreen> {
-  final Color darkBrown = const Color(0xFF3E2723);
+  final Color darkBrown    = const Color(0xFF3E2723);
   final Color goldenYellow = const Color(0xFFE5A93D);
-  final Color creamBg = const Color(0xFFF5EFE6);
+  final Color creamBg      = const Color(0xFFF5EFE6);
 
-  bool _isAdding = false;
+  bool _isAdding      = false;
+  bool _isLoadingFull = false;
+
+  /// Product yang mungkin di-refresh dengan data detail penuh (foto lengkap, dll)
+  late Product _product;
+
+  /// Controller untuk galeri foto
+  late PageController _fotoController;
+  int _currentFotoIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _product      = widget.product;
+    _fotoController = PageController();
+    // Kalau foto belum ada (list endpoint), fetch detail penuh
+    if (_product.foto.isEmpty) {
+      _fetchDetail();
+    }
+  }
+
+  @override
+  void dispose() {
+    _fotoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchDetail() async {
+    setState(() => _isLoadingFull = true);
+    try {
+      final full = await BarangService.instance.fetchBarangDetail(_product.id);
+      if (mounted) setState(() {
+        _product      = full;
+        _isLoadingFull = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingFull = false);
+    }
+  }
 
   String _formatCurrency(double amount) {
     return NumberFormat.currency(
-      locale: 'id',
-      symbol: 'Rp ',
-      decimalDigits: 0,
+      locale: 'id', symbol: 'Rp ', decimalDigits: 0,
     ).format(amount);
   }
 
-  // --- LOGIKA TAMBAH KERANJANG (SEDERHANA) ---
   void _handleAddToCart() {
     setState(() => _isAdding = true);
-    
-    // Simulasi loading proses input ke tabel 'transaksi_detail'
     Future.delayed(const Duration(milliseconds: 800), () {
       if (!mounted) return;
       setState(() => _isAdding = false);
@@ -43,7 +76,7 @@ class _DetailScreenState extends State<DetailScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
+      builder: (_) => Container(
         padding: const EdgeInsets.all(32),
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -54,16 +87,26 @@ class _DetailScreenState extends State<DetailScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
-              child: const Icon(Icons.shopping_cart_checkout_rounded, color: Colors.green, size: 40),
+              decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle),
+              child: const Icon(Icons.shopping_cart_checkout_rounded,
+                  color: Colors.green, size: 40),
             ),
             const SizedBox(height: 24),
-            Text("Masuk Keranjang", style: TextStyle(color: darkBrown, fontSize: 22, fontWeight: FontWeight.w900)),
+            Text('Masuk Keranjang',
+                style: TextStyle(
+                    color: darkBrown,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900)),
             const SizedBox(height: 12),
             Text(
-              "${widget.product.name} telah berhasil ditambahkan. Atur jumlah sewa di menu keranjang.",
+              '${_product.name} telah berhasil ditambahkan. Atur jumlah sewa di menu keranjang.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: darkBrown.withOpacity(0.5), fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  color: darkBrown.withOpacity(0.5),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 32),
             SizedBox(
@@ -73,9 +116,14 @@ class _DetailScreenState extends State<DetailScreen> {
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: darkBrown,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18)),
                 ),
-                child: const Text("LANJUTKAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                child: const Text('LANJUTKAN',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1)),
               ),
             ),
           ],
@@ -84,24 +132,24 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Mapping data harga dan stok dari tabel 'barang'
-    final double hargaPerHari = double.tryParse(widget.product.price.replaceAll('.', '')) ?? 0.0;
-    const int stokTersedia = 120; // Contoh data stok dari tabel barang
+    final fotoList = _product.foto.isNotEmpty
+        ? _product.foto
+        : (_product.fotoUtama != null ? [_product.fotoUtama!] : <String>[]);
 
     return Scaffold(
       backgroundColor: creamBg,
       body: Stack(
         children: [
-          // 1. IMAGE HERO
+          // 1. HERO IMAGE / FOTO GALLERY
           Positioned(
             top: 0, left: 0, right: 0,
             height: MediaQuery.of(context).size.height * 0.5,
-            child: Hero(
-              tag: widget.product.name,
-              child: Image.asset(widget.product.imagePath, fit: BoxFit.contain),
-            ),
+            child: fotoList.isEmpty
+                ? _buildPlaceholderImage()
+                : _buildFotoGallery(fotoList),
           ),
 
           // 2. SCROLLABLE CONTENT
@@ -110,36 +158,65 @@ class _DetailScreenState extends State<DetailScreen> {
               physics: const BouncingScrollPhysics(),
               child: Column(
                 children: [
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.42),
+                  SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.42),
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(45)),
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(45)),
                       boxShadow: [
-                        BoxShadow(color: darkBrown.withOpacity(0.1), blurRadius: 30, offset: const Offset(0, -10))
+                        BoxShadow(
+                            color: darkBrown.withOpacity(0.1),
+                            blurRadius: 30,
+                            offset: const Offset(0, -10))
                       ],
                     ),
-                    padding: const EdgeInsets.fromLTRB(32, 32, 32, 140),
+                    padding:
+                        const EdgeInsets.fromLTRB(32, 32, 32, 140),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildHeader(),
                         const SizedBox(height: 24),
-                        _buildQuickInfo(hargaPerHari, stokTersedia),
-                        
+                        _buildQuickInfo(),
                         const SizedBox(height: 32),
-                        Text("Spesifikasi Produk", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 16)),
-                        const SizedBox(height: 12),
-                        _buildSpecList(),
-
-                        const SizedBox(height: 32),
-                        Text("Deskripsi", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 16)),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Peralatan ekspedisi dari Majelis Adventure ini selalu dalam kondisi steril dan siap tempur. Jaminan keamanan untuk setiap langkah pendakian Anda sesuai standar operasional kami.",
-                          style: TextStyle(color: darkBrown.withOpacity(0.6), height: 1.6, fontSize: 14, fontWeight: FontWeight.w500),
-                        ),
+                        // Tags
+                        if (_product.tags.isNotEmpty) ...[
+                          _buildTags(),
+                          const SizedBox(height: 32),
+                        ],
+                        // Spesifikasi
+                        if (_isLoadingFull)
+                          _buildLoadingSpec()
+                        else ...[
+                          if (_product.specification != null) ...[
+                            Text('Spesifikasi Produk',
+                                style: TextStyle(
+                                    color: darkBrown,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16)),
+                            const SizedBox(height: 12),
+                            _buildSpecList(),
+                            const SizedBox(height: 32),
+                          ],
+                          Text('Deskripsi',
+                              style: TextStyle(
+                                  color: darkBrown,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16)),
+                          const SizedBox(height: 10),
+                          Text(
+                            _product.description ??
+                                'Peralatan ekspedisi dari Majelis Adventure selalu dalam kondisi steril dan siap tempur.',
+                            style: TextStyle(
+                                color: darkBrown.withOpacity(0.6),
+                                height: 1.6,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -149,22 +226,97 @@ class _DetailScreenState extends State<DetailScreen> {
           ),
 
           _buildBackButton(),
-          _buildFloatingBottomBar(hargaPerHari),
+          // Foto indicator dots
+          if (fotoList.length > 1) _buildFotoDots(fotoList.length),
+          _buildFloatingBottomBar(),
         ],
       ),
     );
   }
 
-  // --- FLOATING BAR ---
-  Widget _buildFloatingBottomBar(double price) {
+  // ── Foto Gallery ───────────────────────────────────────────────────────────
+  Widget _buildFotoGallery(List<String> fotoList) {
+    return PageView.builder(
+      controller: _fotoController,
+      onPageChanged: (i) => setState(() => _currentFotoIndex = i),
+      itemCount: fotoList.length,
+      itemBuilder: (_, i) {
+        return Image.network(
+          fotoList[i],
+          fit: BoxFit.cover,
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              color: creamBg,
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                          progress.expectedTotalBytes!
+                      : null,
+                  color: goldenYellow,
+                  strokeWidth: 2,
+                ),
+              ),
+            );
+          },
+          errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaceholderImage() {
+    return Container(
+      color: creamBg,
+      child: Center(
+        child: Icon(Icons.image_not_supported_outlined,
+            size: 64, color: darkBrown.withOpacity(0.2)),
+      ),
+    );
+  }
+
+  Widget _buildFotoDots(int count) {
+    return Positioned(
+      top: MediaQuery.of(context).size.height * 0.44,
+      left: 0,
+      right: 0,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(count, (i) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            height: 6,
+            width: _currentFotoIndex == i ? 18 : 6,
+            decoration: BoxDecoration(
+              color: _currentFotoIndex == i
+                  ? darkBrown
+                  : darkBrown.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  // ── Bottom Bar ─────────────────────────────────────────────────────────────
+  Widget _buildFloatingBottomBar() {
     return Positioned(
       bottom: 0, left: 0, right: 0,
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(35)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, -5))
+          ],
         ),
         child: Row(
           children: [
@@ -172,8 +324,18 @@ class _DetailScreenState extends State<DetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("HARGA SEWA", style: TextStyle(color: darkBrown.withOpacity(0.4), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                Text("${_formatCurrency(price)}/hari", style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 18)),
+                Text('HARGA SEWA',
+                    style: TextStyle(
+                        color: darkBrown.withOpacity(0.4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5)),
+                Text(
+                    '${_formatCurrency(_product.hargaPerHari)}/hari',
+                    style: TextStyle(
+                        color: darkBrown,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18)),
               ],
             ),
             const SizedBox(width: 24),
@@ -182,15 +344,26 @@ class _DetailScreenState extends State<DetailScreen> {
                 height: 58,
                 child: ElevatedButton.icon(
                   onPressed: _isAdding ? null : _handleAddToCart,
-                  icon: _isAdding 
-                    ? const SizedBox.shrink() 
-                    : const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 20),
+                  icon: _isAdding
+                      ? const SizedBox.shrink()
+                      : const Icon(Icons.add_shopping_cart_rounded,
+                          color: Colors.white, size: 20),
                   label: _isAdding
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text("TAMBAH KERANJANG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Text('TAMBAH KERANJANG',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              letterSpacing: 0.5)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: darkBrown,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
                     elevation: 0,
                   ),
                 ),
@@ -202,24 +375,36 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  // --- REUSE COMPONENTS ---
+  // ── Sub-widgets ────────────────────────────────────────────────────────────
   Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.product.category.toUpperCase(), style: TextStyle(color: goldenYellow, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2)),
+        Text(_product.category.toUpperCase(),
+            style: TextStyle(
+                color: goldenYellow,
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
+                letterSpacing: 2)),
         const SizedBox(height: 8),
-        Text(widget.product.name, style: TextStyle(color: darkBrown, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1)),
+        Text(_product.name,
+            style: TextStyle(
+                color: darkBrown,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1)),
       ],
     );
   }
 
-  Widget _buildQuickInfo(double price, int stock) {
+  Widget _buildQuickInfo() {
     return Row(
       children: [
-        _infoCard(Icons.payments_outlined, "TARIF HARIAN", _formatCurrency(price)),
+        _infoCard(Icons.payments_outlined, 'TARIF HARIAN',
+            _formatCurrency(_product.hargaPerHari)),
         const SizedBox(width: 12),
-        _infoCard(Icons.inventory_2_outlined, "STOK UNIT", "$stock"),
+        _infoCard(Icons.inventory_2_outlined, 'STOK UNIT',
+            '${_product.stok}'),
       ],
     );
   }
@@ -239,28 +424,89 @@ class _DetailScreenState extends State<DetailScreen> {
             Row(children: [
               Icon(icon, size: 13, color: goldenYellow),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(color: darkBrown.withOpacity(0.4), fontSize: 9, fontWeight: FontWeight.w900)),
+              Text(label,
+                  style: TextStyle(
+                      color: darkBrown.withOpacity(0.4),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900)),
             ]),
             const SizedBox(height: 8),
-            Text(value, style: TextStyle(color: darkBrown, fontSize: 14, fontWeight: FontWeight.w900)),
+            Text(value,
+                style: TextStyle(
+                    color: darkBrown,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900)),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildTags() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _product.tags.map((tag) {
+        return Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: goldenYellow.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: goldenYellow.withOpacity(0.3)),
+          ),
+          child: Text('#$tag',
+              style: TextStyle(
+                  color: goldenYellow,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700)),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildSpecList() {
-    // Contoh spesifikasi yang merujuk pada detail teknis di tabel barang[cite: 1]
-    final List<String> specs = ["Kualitas Premium", "Sterilisasi Rutin", "Ketahanan Cuaca Ekstrem", "Ringan & Ergonomis"];
+    // Parse spesifikasi dari string dengan bullet "-" menjadi list
+    final specs = (_product.specification ?? '')
+        .split('\n')
+        .where((s) => s.trim().isNotEmpty)
+        .map((s) => s.trim().replaceFirst(RegExp(r'^-\s*'), ''))
+        .toList();
+
+    if (specs.isEmpty) {
+      return const SizedBox();
+    }
+
     return Column(
       children: specs.map((s) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Row(children: [
           Icon(Icons.verified_outlined, color: goldenYellow, size: 16),
           const SizedBox(width: 12),
-          Text(s, style: TextStyle(color: darkBrown.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w700)),
+          Expanded(
+            child: Text(s,
+                style: TextStyle(
+                    color: darkBrown.withOpacity(0.7),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700)),
+          ),
         ]),
       )).toList(),
+    );
+  }
+
+  Widget _buildLoadingSpec() {
+    return Column(
+      children: List.generate(4, (_) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+            height: 14,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: darkBrown.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(4),
+            )),
+      )),
     );
   }
 
@@ -271,8 +517,16 @@ class _DetailScreenState extends State<DetailScreen> {
         onTap: () => Navigator.pop(context),
         child: Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)]),
-          child: Icon(Icons.arrow_back_ios_new_rounded, color: darkBrown, size: 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.1), blurRadius: 10)
+            ],
+          ),
+          child: Icon(Icons.arrow_back_ios_new_rounded,
+              color: darkBrown, size: 18),
         ),
       ),
     );

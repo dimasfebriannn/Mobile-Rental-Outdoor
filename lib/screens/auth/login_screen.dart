@@ -1,6 +1,8 @@
+// lib/screens/auth/login_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../widgets/custom_textfield.dart';
+import '../../services/auth_service.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
 
@@ -11,12 +13,23 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
+  // ── Controllers ──────────────────────────────────────
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  // ── State ─────────────────────────────────────────────
+  bool _isLoading = false;
+  bool _isGoogleLoading = false;
+
+  // ── Animations ────────────────────────────────────────
   late AnimationController _controller;
   late Animation<double> _fade;
   late Animation<Offset> _headerSlide;
   late Animation<Offset> _sheetSlide;
 
+  // ── Colors ────────────────────────────────────────────
   final Color creamBg = const Color(0xFFF5EFE6);
   final Color darkBrown = const Color(0xFF3E2723);
   final Color goldenYellow = const Color(0xFFE5A93D);
@@ -28,36 +41,45 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-
     _fade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0.0, 0.6, curve: Curves.easeIn)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
+      ),
     );
-
-    _headerSlide = Tween<Offset>(begin: const Offset(-0.08, 0), end: Offset.zero).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic)),
-    );
-
-    _sheetSlide = Tween<Offset>(begin: const Offset(0, 1.0), end: Offset.zero).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0.3, 1.0, curve: Curves.easeOutExpo)),
-    );
-
+    _headerSlide =
+        Tween<Offset>(begin: const Offset(-0.08, 0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+          ),
+        );
+    _sheetSlide = Tween<Offset>(begin: const Offset(0, 1.0), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.3, 1.0, curve: Curves.easeOutExpo),
+          ),
+        );
     _controller.forward();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  // Fungsi Helper untuk Navigasi Fade (Biar Kode Bersih)
+  // ── Navigation ────────────────────────────────────────
   void _navigateTo(Widget screen, {bool isReplacement = false}) {
     final route = PageRouteBuilder(
       pageBuilder: (context, anim1, anim2) => screen,
-      transitionsBuilder: (context, anim1, anim2, child) => FadeTransition(opacity: anim1, child: child),
+      transitionsBuilder: (context, anim1, anim2, child) =>
+          FadeTransition(opacity: anim1, child: child),
       transitionDuration: const Duration(milliseconds: 500),
     );
-
     if (isReplacement) {
       Navigator.pushReplacement(context, route);
     } else {
@@ -65,6 +87,155 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
+  void _goToHome() => _navigateTo(const HomeScreen(), isReplacement: true);
+
+  // ── Snackbar Helper ───────────────────────────────────
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Future<void> _showCreatePasswordDialog(String email) async {
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text('Buat Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Agar bisa login menggunakan email & password, buat password terlebih dahulu.',
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Password'),
+              ),
+
+              const SizedBox(height: 12),
+
+              TextField(
+                controller: confirmController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Konfirmasi Password',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Nanti'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final password = passwordController.text.trim();
+                final confirm = confirmController.text.trim();
+
+                if (password != confirm) {
+                  _showError('Konfirmasi password tidak cocok.');
+                  return;
+                }
+
+                final result = await AuthService.instance
+                    .setPasswordForGoogleAccount(
+                      email: email,
+                      password: password,
+                    );
+
+                if (!mounted) return;
+
+                Navigator.pop(context);
+
+                if (result.success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Password berhasil dibuat. Sekarang bisa login email/password.',
+                      ),
+                    ),
+                  );
+                } else {
+                  _showError(result.message ?? 'Gagal membuat password.');
+                }
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ─────────────────────────────────────────────────────
+  // AUTH ACTIONS
+  // ─────────────────────────────────────────────────────
+
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Email dan kata sandi wajib diisi.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final result = await AuthService.instance.loginWithEmail(
+      email: email,
+      password: password,
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.success) {
+      _goToHome();
+    } else {
+      _showError(result.message ?? 'Login gagal.');
+    }
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    setState(() => _isGoogleLoading = true);
+
+    final result = await AuthService.instance.loginWithGoogle();
+
+    if (!mounted) return;
+    setState(() => _isGoogleLoading = false);
+
+    if (result.success) {
+      final hasPassword = result.user?['has_password'] == true;
+
+      final email = result.user?['email'];
+
+      if (!hasPassword && email != null) {
+        await _showCreatePasswordDialog(email);
+      }
+
+      _goToHome();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────
+  // BUILD
+  // ─────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -75,79 +246,131 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         height: size.height,
         child: Stack(
           children: [
-            // ================= BACKGROUND DECORATION =================
+            // ── Background Decoration ──────────────────
             Positioned(
-              top: -30, right: -30,
+              top: -30,
+              right: -30,
               child: Container(
-                width: 200, height: 200,
+                width: 200,
+                height: 200,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle, 
-                  color: goldenYellow.withOpacity(0.15)
+                  shape: BoxShape.circle,
+                  color: goldenYellow.withOpacity(0.15),
                 ),
               ),
             ),
             Positioned(
-              top: 20, right: -50,
+              top: 20,
+              right: -50,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(100),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                   child: Container(
-                    width: 180, height: 180,
+                    width: 180,
+                    height: 180,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withOpacity(0.1),
-                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
 
-            // ================= HEADER SECTION =================
+            // ── Header ────────────────────────────────
             Positioned(
-              top: 0, left: 0, right: 0, height: size.height * 0.42,
+              top: 0,
+              left: 0,
+              right: 0,
+              height: size.height * 0.42,
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 20.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32.0,
+                    vertical: 20.0,
+                  ),
                   child: AnimatedBuilder(
                     animation: _controller,
                     builder: (context, child) => Opacity(
-                      opacity: _fade.value, 
-                      child: SlideTransition(position: _headerSlide, child: child!)
+                      opacity: _fade.value,
+                      child: SlideTransition(
+                        position: _headerSlide,
+                        child: child!,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // BRANDING: MAJELIS ADVENTURE (Premium Look)
                         Row(
                           children: [
                             CircleAvatar(
-                              radius: 22, 
+                              radius: 22,
                               backgroundColor: Colors.white,
-                              // PERBAIKAN: Gunakan path standar assets/
-                              backgroundImage: const AssetImage('lib/assets/img/majelis.png'),
+                              backgroundImage: const AssetImage(
+                                'lib/assets/img/majelis.png',
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("MAJELIS", 
-                                  style: TextStyle(fontWeight: FontWeight.w900, color: darkBrown, fontSize: 18, letterSpacing: 0.5)),
-                                Text("ADVENTURE", 
-                                  style: TextStyle(fontWeight: FontWeight.w300, color: darkBrown.withOpacity(0.7), fontSize: 11, letterSpacing: 4.0)),
+                                Text(
+                                  'MAJELIS',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    color: darkBrown,
+                                    fontSize: 18,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                Text(
+                                  'ADVENTURE',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w300,
+                                    color: darkBrown.withOpacity(0.7),
+                                    fontSize: 11,
+                                    letterSpacing: 4.0,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
                         ),
                         const Spacer(),
-                        Text("Mulai", 
-                          style: TextStyle(fontSize: 38, fontWeight: FontWeight.w300, color: darkBrown, letterSpacing: -1.0)),
-                        Text("Petualangan.", 
-                          style: TextStyle(fontSize: 42, fontWeight: FontWeight.w900, color: goldenYellow, height: 1.0, letterSpacing: -1.5)),
+                        Text(
+                          'Mulai',
+                          style: TextStyle(
+                            fontSize: 38,
+                            fontWeight: FontWeight.w300,
+                            color: darkBrown,
+                            letterSpacing: -1.0,
+                          ),
+                        ),
+                        Text(
+                          'Petualangan.',
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w900,
+                            color: goldenYellow,
+                            height: 1.0,
+                            letterSpacing: -1.5,
+                          ),
+                        ),
                         const SizedBox(height: 10),
-                        Text("Peralatan outdoor terbaik untuk\nsetiap pendakianmu.", 
-                          style: TextStyle(fontSize: 14, color: darkBrown.withOpacity(0.5), fontWeight: FontWeight.w500, height: 1.4)),
+                        Text(
+                          'Peralatan outdoor terbaik untuk\nsetiap pendakianmu.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: darkBrown.withOpacity(0.5),
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -155,18 +378,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               ),
             ),
 
-            // ================= FORM SHEET SECTION =================
+            // ── Form Sheet ────────────────────────────
             Positioned(
-              bottom: 0, left: 0, right: 0, height: size.height * 0.58,
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: size.height * 0.58,
               child: AnimatedBuilder(
                 animation: _controller,
-                builder: (context, child) => SlideTransition(position: _sheetSlide, child: child!),
+                builder: (context, child) =>
+                    SlideTransition(position: _sheetSlide, child: child!),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(40),
+                    ),
                     boxShadow: [
-                      BoxShadow(color: darkBrown.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, -5))
+                      BoxShadow(
+                        color: darkBrown.withOpacity(0.04),
+                        blurRadius: 20,
+                        offset: const Offset(0, -5),
+                      ),
                     ],
                   ),
                   child: Padding(
@@ -174,39 +407,84 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     child: Column(
                       children: [
                         Container(
-                          width: 36, height: 4, 
-                          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10))
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         const SizedBox(height: 28),
 
-                        const CustomTextField(hintText: "Email", prefixIcon: Icons.alternate_email_rounded),
+                        // ── Input Fields ──────────────
+                        CustomTextField(
+                          hintText: 'Email',
+                          prefixIcon: Icons.alternate_email_rounded,
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
                         const SizedBox(height: 12),
-                        const CustomTextField(hintText: "Kata Sandi", prefixIcon: Icons.lock_outline_rounded, isPassword: true),
-                        
+                        CustomTextField(
+                          hintText: 'Kata Sandi',
+                          prefixIcon: Icons.lock_outline_rounded,
+                          isPassword: true,
+                          controller: _passwordController,
+                        ),
+
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {}, 
-                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 35)),
-                            child: Text("Lupa Sandi?", 
-                              style: TextStyle(color: darkBrown, fontWeight: FontWeight.w700, fontSize: 12))
+                            onPressed: () {
+                              // TODO: implement forgot password
+                            },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 35),
+                            ),
+                            child: Text(
+                              'Lupa Sandi?',
+                              style: TextStyle(
+                                color: darkBrown,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 8),
 
-                        // Login Button
+                        // ── Login Button ──────────────
                         SizedBox(
-                          width: double.infinity, height: 52,
+                          width: double.infinity,
+                          height: 52,
                           child: ElevatedButton(
-                            onPressed: () => _navigateTo(const HomeScreen(), isReplacement: true),
+                            onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: darkBrown, 
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 0
+                              backgroundColor: darkBrown,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
                             ),
-                            child: const Text("MASUK", 
-                              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'MASUK',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
                           ),
                         ),
 
@@ -214,51 +492,99 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                         Row(
                           children: [
-                            Expanded(child: Divider(color: Colors.grey.shade200)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16), 
-                              child: Text("ATAU", 
-                                style: TextStyle(color: Colors.grey.shade400, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1))
+                            Expanded(
+                              child: Divider(color: Colors.grey.shade200),
                             ),
-                            Expanded(child: Divider(color: Colors.grey.shade200)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Text(
+                                'ATAU',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(color: Colors.grey.shade200),
+                            ),
                           ],
                         ),
 
                         const SizedBox(height: 18),
 
-                        // Google Button
+                        // ── Google Button ─────────────
                         SizedBox(
-                          width: double.infinity, height: 52,
+                          width: double.infinity,
+                          height: 52,
                           child: OutlinedButton(
-                            onPressed: () => _navigateTo(const HomeScreen(), isReplacement: true),
+                            onPressed: _isGoogleLoading
+                                ? null
+                                : _handleGoogleLogin,
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.grey.shade300), 
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.g_mobiledata_rounded, color: darkBrown, size: 30),
-                                const SizedBox(width: 8),
-                                Text("GOOGLE ACCOUNT", 
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: darkBrown)),
-                              ],
-                            ),
+                            child: _isGoogleLoading
+                                ? SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      color: darkBrown,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.g_mobiledata_rounded,
+                                        color: darkBrown,
+                                        size: 30,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'GOOGLE ACCOUNT',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: darkBrown,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                           ),
                         ),
 
                         const Spacer(),
 
-                        // Footer
+                        // ── Footer ────────────────────
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("Belum punya akun? ", 
-                              style: TextStyle(color: darkBrown.withOpacity(0.6), fontSize: 13)),
+                            Text(
+                              'Belum punya akun? ',
+                              style: TextStyle(
+                                color: darkBrown.withOpacity(0.6),
+                                fontSize: 13,
+                              ),
+                            ),
                             GestureDetector(
                               onTap: () => _navigateTo(const RegisterScreen()),
-                              child: Text("Daftar Sekarang", 
-                                style: TextStyle(color: darkBrown, fontWeight: FontWeight.w900, fontSize: 13))
+                              child: Text(
+                                'Daftar Sekarang',
+                                style: TextStyle(
+                                  color: darkBrown,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ),
                           ],
                         ),
