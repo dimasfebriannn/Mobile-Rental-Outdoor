@@ -1,6 +1,9 @@
+// lib/screens/splash/splash_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../services/api_service.dart';
 import '../auth/login_screen.dart';
+import '../home/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,21 +20,18 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<Offset> _textSlide;
   late Animation<double> _textFade;
 
-  final Color creamBg = const Color(0xFFF5EFE6);
+  final Color creamBg   = const Color(0xFFF5EFE6);
   final Color darkBrown = const Color(0xFF3E2723);
 
   @override
   void initState() {
     super.initState();
 
-    // Durasi total animasi diperpanjang sedikit agar efeknya bisa dinikmati
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     );
 
-    // 1. Efek Logo (Berjalan dari detik 0 hingga 60% waktu animasi)
-    // Menggunakan easeOutBack untuk efek memantul yang elegan
     _logoScale = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -46,9 +46,10 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // 2. Efek Teks Bawah (Berjalan dari 60% hingga selesai)
-    // Teks baru muncul setelah logo selesai memantul
-    _textSlide = Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero).animate(
+    _textSlide = Tween<Offset>(
+      begin: const Offset(0, 1.5),
+      end: Offset.zero,
+    ).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.6, 1.0, curve: Curves.easeOutCubic),
@@ -62,26 +63,33 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // Jalankan animasi
     _controller.forward();
 
-    // Pindah ke halaman Login setelah 3.5 detik (memberi jeda setelah animasi selesai)
-    Timer(const Duration(milliseconds: 3500), () {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            // Efek transisi antar layar yang sangat halus
-            var fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-            );
-            return FadeTransition(opacity: fadeAnimation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 1000), // Transisi 1 detik
-        ),
-      );
-    });
+    // Setelah animasi selesai, cek status login lalu arahkan
+    Timer(const Duration(milliseconds: 3200), () => _checkLoginAndNavigate());
+  }
+
+  // ── Cek token → jika ada langsung ke Home, jika tidak ke Login ──
+  Future<void> _checkLoginAndNavigate() async {
+    if (!mounted) return;
+
+    final isLoggedIn = await ApiService.instance.isLoggedIn;
+
+    if (!mounted) return;
+
+    final Widget destination = isLoggedIn
+        ? const HomeScreen()   // ← token masih ada, langsung masuk
+        : const LoginScreen(); // ← belum/sudah logout, suruh login
+
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => destination,
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+        transitionDuration: const Duration(milliseconds: 800),
+      ),
+    );
   }
 
   @override
@@ -96,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: creamBg,
       body: Stack(
         children: [
-          // Bagian Tengah (Logo)
+          // ── Logo di tengah ──────────────────────────
           Center(
             child: AnimatedBuilder(
               animation: _controller,
@@ -106,12 +114,11 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Transform.scale(
                     scale: _logoScale.value,
                     child: Container(
-                      width: 160, // Ukuran sedikit diperbesar
+                      width: 160,
                       height: 160,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         boxShadow: [
-                          // Bayangan Pendar (Glow) yang lebar dan halus
                           BoxShadow(
                             color: darkBrown.withOpacity(0.15),
                             blurRadius: 40,
@@ -130,8 +137,8 @@ class _SplashScreenState extends State<SplashScreen>
               },
             ),
           ),
-          
-          // Bagian Bawah (Teks Versi & Copyright)
+
+          // ── Teks versi di bawah ──────────────────────
           Positioned(
             bottom: 40,
             left: 0,
