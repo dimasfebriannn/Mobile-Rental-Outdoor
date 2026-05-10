@@ -1,5 +1,7 @@
 // lib/models/recommendation.dart
 
+import '../config/api_config.dart';
+
 class RecommendationResult {
   final AiAnalysis ai;
   final List<RecommendedBarang> recommendations;
@@ -16,14 +18,20 @@ class RecommendationResult {
   });
 
   factory RecommendationResult.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> body =
+        (json['data'] is Map<String, dynamic>)
+            ? json['data'] as Map<String, dynamic>
+            : json;
+
     return RecommendationResult(
-      ai:              AiAnalysis.fromJson(json['ai'] as Map<String, dynamic>? ?? {}),
-      recommendations: (json['recommendations'] as List<dynamic>? ?? [])
+      ai: AiAnalysis.fromJson(
+          body['ai'] as Map<String, dynamic>? ?? {}),
+      recommendations: (body['recommendations'] as List<dynamic>? ?? [])
           .map((e) => RecommendedBarang.fromJson(e as Map<String, dynamic>))
           .toList(),
-      isFallback: json['is_fallback'] as bool? ?? false,
-      message:    json['message'] as String? ?? '',
-      total:      json['total'] as int? ?? 0,
+      isFallback: body['is_fallback'] as bool? ?? false,
+      message:    body['message'] as String? ?? '',
+      total:      body['total'] as int? ?? 0,
     );
   }
 }
@@ -50,9 +58,7 @@ class AiAnalysis {
     );
   }
 
-  /// Confidence dalam persen (0–100)
   int get confidencePercent => (confidence * 100).round();
-
   bool get hasDetection => detectedItems.isNotEmpty || tags.isNotEmpty;
 }
 
@@ -87,22 +93,57 @@ class RecommendedBarang {
     required this.matchedTags,
   });
 
+  // ── URL fixer ──────────────────────────────────────────────────────────────
+  // Mengganti semua domain lokal/development dengan ngrok/produksi dari
+  // ApiConfig. Menangkap:
+  //   • http://localhost:PORT
+  //   • http://127.0.0.1:PORT
+  //   • http://majelis-rental.test  ← domain Laravel Herd/Valet lokal
+  //   • domain .test lainnya
+  static String? _fixImageUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+
+    // Base URL aktif: https://xxx.ngrok-free.app (tanpa /api)
+    final appBase = ApiConfig.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+
+    // Ganti semua varian URL lokal dengan appBase
+    return raw.replaceFirstMapped(
+      RegExp(
+        r'https?://'
+        r'(localhost|127\.0\.0\.1|10\.0\.2\.2'   // emulator & loopback
+        r'|[a-zA-Z0-9\-]+\.test'                  // *.test (Herd/Valet)
+        r'|[a-zA-Z0-9\-]+\.local'                 // *.local (Homestead)
+        r')(:\d+)?',                               // port opsional
+      ),
+      (_) => appBase,
+    );
+  }
+
+  static List<String> _fixImageList(List<dynamic> raw) {
+    return raw
+        .map((e) => _fixImageUrl(e.toString()))
+        .whereType<String>()
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
   factory RecommendedBarang.fromJson(Map<String, dynamic> json) {
     return RecommendedBarang(
-      id:          json['id'] as int,
-      nama:        json['nama'] as String,
-      deskripsi:   json['deskripsi'] as String?,
-      spesifikasi: json['spesifikasi'] as String?,
+      id:           json['id'] as int,
+      nama:         json['nama'] as String,
+      deskripsi:    json['deskripsi'] as String?,
+      spesifikasi:  json['spesifikasi'] as String?,
       hargaPerHari: (json['harga_per_hari'] as num).toDouble(),
-      stok:        json['stok'] as int,
-      status:      json['status'] as String,
-      fotoUrl:     json['foto_url'] as String?,
-      semuaFoto:   List<String>.from(json['semua_foto'] ?? []),
+      stok:         json['stok'] as int,
+      status:       json['status'] as String,
+      fotoUrl:      _fixImageUrl(json['foto_url'] as String?),
+      semuaFoto:    _fixImageList(json['semua_foto'] as List<dynamic>? ?? []),
       kategori: json['kategori'] != null
-          ? BarangKategori.fromJson(json['kategori'])
+          ? BarangKategori.fromJson(
+              json['kategori'] as Map<String, dynamic>)
           : null,
       tags: (json['tags'] as List<dynamic>? ?? [])
-          .map((e) => BarangTag.fromJson(e))
+          .map((e) => BarangTag.fromJson(e as Map<String, dynamic>))
           .toList(),
       matchScore:  json['match_score'] as int? ?? 0,
       matchedTags: List<String>.from(json['matched_tags'] ?? []),
@@ -110,10 +151,12 @@ class RecommendedBarang {
   }
 
   String get hargaFormatted {
-    final formatted = hargaPerHari.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]}.',
-    );
+    final formatted = hargaPerHari
+        .toStringAsFixed(0)
+        .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]}.',
+        );
     return 'Rp $formatted/hari';
   }
 }
@@ -125,7 +168,7 @@ class BarangKategori {
   const BarangKategori({required this.id, required this.nama});
 
   factory BarangKategori.fromJson(Map<String, dynamic> json) =>
-      BarangKategori(id: json['id'], nama: json['nama']);
+      BarangKategori(id: json['id'] as int, nama: json['nama'] as String);
 }
 
 class BarangTag {
@@ -135,5 +178,5 @@ class BarangTag {
   const BarangTag({required this.slug, required this.label});
 
   factory BarangTag.fromJson(Map<String, dynamic> json) =>
-      BarangTag(slug: json['slug'], label: json['label']);
+      BarangTag(slug: json['slug'] as String, label: json['label'] as String);
 }
