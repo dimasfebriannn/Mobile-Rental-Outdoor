@@ -28,6 +28,8 @@ dependencies:
   # ── HTTP Client (baru) ────────────────────────────────
   dio: ^5.4.3+1
 
+  image_picker: ^1.1.2 # Pick gambar dari kamera/galeri
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

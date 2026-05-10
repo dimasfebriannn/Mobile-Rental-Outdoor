@@ -13,7 +13,7 @@ class ApiConfig {
 
   // ── URL per environment ───────────────────────────────────────────────────
   static const String _localUrl = 'http://10.0.2.2:8000/api';
-  static const String _ngrokUrl = 'https://ace6-103-105-57-88.ngrok-free.app/api';
+  static const String _ngrokUrl = 'https://fc53-103-105-57-88.ngrok-free.app/api';
   static const String _prodUrl  = 'https://api.yourdomain.com/api';
 
   static String get baseUrl {
@@ -38,14 +38,17 @@ class ApiConfig {
   static const String kategori       = '/kategori';
 
   // ── Profile Endpoints ─────────────────────────────────────────────────────
-  /// GET /api/profile        → ambil profil user yang login
-  /// PUT /api/profile        → update nama, phone, alamat
   static const String profile        = '/profile';
-
-  /// POST /api/profile/change-password → ganti kata sandi
   static const String changePassword = '/profile/change-password';
+
+  // ── AI Recommendation Endpoints ───────────────────────────────────────────
+  /// POST /api/recommendation/image  — upload gambar, terima rekomendasi
+  static const String recommendationImage   = '/recommendation/image';
+
+  /// GET  /api/recommendation/history — riwayat rekomendasi user login
+  static const String recommendationHistory = '/recommendation/history';
 
   // ── Dio settings ──────────────────────────────────────────────────────────
   static const int connectTimeout = 30000;
-  static const int receiveTimeout = 30000;
+  static const int receiveTimeout = 60000; // Lebih lama untuk AI processing
 }

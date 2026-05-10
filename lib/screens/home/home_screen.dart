@@ -1,9 +1,12 @@
 // lib/screens/home/home_screen.dart
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';               // ← BARU
 import 'package:majelis_adventure/screens/chat/chat_screen.dart';
 import 'package:majelis_adventure/screens/home/notification_screen.dart';
 import 'package:majelis_adventure/screens/profile/profile_screen.dart';
+import 'package:majelis_adventure/screens/recommendation/recommendation_screen.dart'; // ← BARU
 import '../../widgets/product_card.dart';
 import '../../models/product.dart';
 import '../../services/barang_service.dart';
@@ -35,10 +38,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool          _isLoading     = true;
   bool          _isLoadingCats = true;
   String?       _errorMessage;
-  String?       _errorDetail; // detail error untuk debug
+  String?       _errorDetail;
 
   String _activeCategory = 'Semua';
   final TextEditingController _searchController = TextEditingController();
+
+  // ── Image Picker ── BARU ───────────────────────────────────────────────────
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _isPickingImage = false;
 
   // ── Promo Banner ───────────────────────────────────────────────────────────
   final List<Map<String, String>> promos = [
@@ -128,6 +135,186 @@ class _HomeScreenState extends State<HomeScreen> {
     _debounce = Timer(const Duration(milliseconds: 500), _loadBarang);
   }
 
+  // ── AI Image Scan ── BARU ──────────────────────────────────────────────────
+
+  /// Tampilkan bottom sheet pilih Camera atau Gallery
+  void _showImageSourceSheet() {
+    showModalBottomSheet(
+      context:         context,
+      backgroundColor: Colors.transparent,
+      builder:         (_) => _buildImageSourceSheet(),
+    );
+  }
+
+  Widget _buildImageSourceSheet() {
+    return Container(
+      margin:  const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color:        Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Handle bar ───────────────────────────────────────────────────
+          Container(
+            width:  40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color:        cokelatTua.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // ── Title ────────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color:  cokelatTua.withOpacity(0.06),
+                    shape:  BoxShape.circle,
+                  ),
+                  child: Icon(Icons.auto_awesome_rounded,
+                      color: cokelatTua, size: 26),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Cari dengan Gambar',
+                  style: TextStyle(
+                      color:      cokelatTua,
+                      fontSize:   17,
+                      fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'AI akan mengenali peralatan outdoor\ndari foto dan merekomendasikan yang tersedia',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color:    cokelatTua.withOpacity(0.5),
+                      fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          // ── Buttons ──────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(child: _buildSourceButton(
+                  icon:   Icons.camera_alt_rounded,
+                  label:  'Kamera',
+                  source: ImageSource.camera,
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _buildSourceButton(
+                  icon:   Icons.photo_library_rounded,
+                  label:  'Galeri',
+                  source: ImageSource.gallery,
+                )),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Batal',
+                style: TextStyle(
+                    color:    cokelatTua.withOpacity(0.4),
+                    fontSize: 14)),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSourceButton({
+    required IconData    icon,
+    required String      label,
+    required ImageSource source,
+  }) {
+    return GestureDetector(
+      onTap: () async {
+        Navigator.pop(context); // tutup bottom sheet
+        await _pickAndNavigate(source);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color:        cokelatTua,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white, size: 28),
+            const SizedBox(height: 6),
+            Text(label,
+                style: const TextStyle(
+                    color:      Colors.white,
+                    fontSize:   13,
+                    fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Pick gambar → navigate ke RecommendationScreen
+  Future<void> _pickAndNavigate(ImageSource source) async {
+    if (_isPickingImage) return;
+    setState(() => _isPickingImage = true);
+
+    try {
+      final picked = await _imagePicker.pickImage(
+        source:      source,
+        imageQuality: 80,    // compress ke 80% untuk hemat bandwidth
+        maxWidth:    1024,
+        maxHeight:   1024,
+      );
+
+      if (picked == null || !mounted) return;
+
+      final file = File(picked.path);
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 400),
+          pageBuilder: (context, anim, _) =>
+              RecommendationScreen(imageFile: file),
+          transitionsBuilder: (context, anim, _, child) =>
+              SlideTransition(
+                position: Tween<Offset>(
+                    begin: const Offset(0, 0.1), end: Offset.zero)
+                    .animate(CurvedAnimation(
+                        parent: anim, curve: Curves.easeOut)),
+                child: FadeTransition(opacity: anim, child: child),
+              ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ Gagal pick image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:  const Text('Gagal membuka kamera/galeri.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPickingImage = false);
+    }
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -161,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(child: _buildLuxuryHeader()),
-        SliverToBoxAdapter(child: _buildSleekSearchBar()),
+        SliverToBoxAdapter(child: _buildSleekSearchBar()),  // ← DIUPDATE
         SliverToBoxAdapter(child: _buildPromoBanner()),
         SliverToBoxAdapter(child: _buildPillFilters()),
         SliverPadding(
@@ -230,7 +417,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.w700,
                       fontSize: 14),
                 ),
-                // ── Kotak detail error untuk debug ──
                 if (_errorDetail != null) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -450,6 +636,76 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Search Bar — DIUPDATE dengan tombol AI scan ────────────────────────────
+  Widget _buildSleekSearchBar() {
+    return Container(
+      margin:  const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      height:  50,
+      decoration: BoxDecoration(
+        color:        Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border:       Border.all(color: cokelatTua.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          // ── Text field ──────────────────────────────────────────────────
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText:  'Cari perlengkapan gunung...',
+                hintStyle: TextStyle(
+                    color: cokelatTua.withOpacity(0.3), fontSize: 14),
+                prefixIcon: Icon(
+                    Icons.search_rounded, color: cokelatTua, size: 20),
+                border:         InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+            ),
+          ),
+
+          // ── Divider ─────────────────────────────────────────────────────
+          Container(
+            width:  1,
+            height: 26,
+            color:  cokelatTua.withOpacity(0.08),
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+          ),
+
+          // ── AI Scan Button ───────────────────────────────────────────────
+          GestureDetector(
+            onTap: _isPickingImage ? null : _showImageSourceSheet,
+            child: Container(
+              width:  46,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                color: cokelatTua.withOpacity(0.04),
+                borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(12)),
+              ),
+              child: _isPickingImage
+                  ? Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: cokelatTua,
+                      ),
+                    )
+                  : Tooltip(
+                      message: 'Cari dengan foto',
+                      child: Icon(
+                        Icons.camera_enhance_rounded,
+                        color: cokelatTua,
+                        size: 22,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Promo Banner ───────────────────────────────────────────────────────────
   Widget _buildPromoBanner() {
     return Container(
@@ -533,32 +789,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Search Bar ─────────────────────────────────────────────────────────────
-  Widget _buildSleekSearchBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cokelatTua.withOpacity(0.05)),
-      ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Cari perlengkapan gunung...',
-          hintStyle: TextStyle(
-              color: cokelatTua.withOpacity(0.3), fontSize: 14),
-          prefixIcon:
-              Icon(Icons.search_rounded, color: cokelatTua, size: 20),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 13),
-        ),
-      ),
-    );
-  }
-
   // ── Pill Filters ───────────────────────────────────────────────────────────
   Widget _buildPillFilters() {
     return Container(
@@ -611,14 +841,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBottomNavBar() {
     return Positioned(
       bottom: 0,
-      left: 0,
-      right: 0,
+      left:   0,
+      right:  0,
       child: Container(
         height: 90,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(30)),
+          color:        Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
           border: Border(
               top: BorderSide(color: cokelatTua.withOpacity(0.05))),
         ),
