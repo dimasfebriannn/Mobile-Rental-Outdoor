@@ -16,10 +16,33 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   final Color emasMajelis = const Color(0xFFE5A93D);
   final Color latarKrem = const Color(0xFFF5EFE6);
 
+  // State untuk mengontrol loading
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    // Jalankan loading pertama kali saat masuk screen
+    _simulateLoading();
+
+    // Tambahkan listener agar saat pindah tab muncul animasi loading
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        _simulateLoading();
+      }
+    });
+  }
+
+  // Fungsi simulasi loading data dari database
+  void _simulateLoading() {
+    setState(() => _isLoading = true);
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    });
   }
 
   @override
@@ -34,22 +57,21 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       backgroundColor: latarKrem,
       body: Column(
         children: [
-          // 1. HEADER RAMPING & MINIMALIS (SLIM DESIGN)
           _buildSlimHeader(),
-
-          // 2. TAB SELECTION (MODERN SEGMENTED STYLE)
           _buildModernTabBar(),
 
-          // 3. DAFTAR PESANAN
+          // Konten Utama dengan logika Loading
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              physics: const BouncingScrollPhysics(),
-              children: [
-                _buildOrderList(isHistory: false),
-                _buildOrderList(isHistory: true),
-              ],
-            ),
+            child: _isLoading 
+              ? _buildLoadingState() // Tampilkan loading jika sedang memuat
+              : TabBarView(
+                  controller: _tabController,
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    _buildOrderList(isHistory: false),
+                    _buildOrderList(isHistory: true),
+                  ],
+                ),
           ),
           const SizedBox(height: 80), 
         ],
@@ -57,7 +79,35 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
     );
   }
 
-  // HEADER DENGAN TINGGI YANG LEBIH RAMPING
+  // --- WIDGET LOADING STATE (LUXURY STYLE) ---
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              color: emasMajelis,
+              strokeWidth: 3,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "MEMUAT DATA...",
+            style: TextStyle(
+              color: cokelatTua.withOpacity(0.4),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSlimHeader() {
     return Container(
       width: double.infinity,
@@ -96,7 +146,6 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
               ),
             ],
           ),
-          // ICON MINIMALIS
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -110,7 +159,6 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
     );
   }
 
-  // TAB BAR DENGAN DESAIN MODERN PILL YANG LEBIH FLAT
   Widget _buildModernTabBar() {
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 20, 24, 10),
@@ -142,6 +190,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   }
 
   Widget _buildOrderList({required bool isHistory}) {
+    // Data dummy di sini nantinya ditarik dari table 'transaksi'
     final filteredOrders = dummyOrders.where((order) {
       if (isHistory) {
         return order.status == OrderStatus.selesai || order.status == OrderStatus.dibatalkan;
@@ -157,7 +206,6 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
-        // RINGKASAN DATA
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(26, 15, 24, 5),
@@ -179,32 +227,20 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final order = filteredOrders[index];
-                
-                return TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: Duration(milliseconds: 300 + (index * 100)),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, child) {
-                    return Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: Opacity(opacity: value, child: child),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            transitionDuration: const Duration(milliseconds: 300),
-                            pageBuilder: (context, anim, _) => OrderDetailScreen(order: order),
-                            transitionsBuilder: (context, anim, _, child) => FadeTransition(opacity: anim, child: child),
-                          ),
-                        );
-                      },
-                      child: OrderCard(order: order),
-                    ),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        PageRouteBuilder(
+                          transitionDuration: const Duration(milliseconds: 300),
+                          pageBuilder: (context, anim, _) => OrderDetailScreen(order: order),
+                          transitionsBuilder: (context, anim, _, child) => FadeTransition(opacity: anim, child: child),
+                        ),
+                      );
+                    },
+                    child: OrderCard(order: order),
                   ),
                 );
               },
@@ -242,20 +278,6 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
             textAlign: TextAlign.center,
             style: TextStyle(color: cokelatTua.withOpacity(0.4), fontSize: 12, height: 1.5, fontWeight: FontWeight.w500),
           ),
-          const SizedBox(height: 30),
-          // TOMBOL MINIMALIS
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: cokelatTua, width: 1.5),
-              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: Text(
-              "LIHAT KATALOG",
-              style: TextStyle(color: cokelatTua, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
-            ),
-          )
         ],
       ),
     );

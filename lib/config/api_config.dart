@@ -13,7 +13,7 @@ class ApiConfig {
 
   // ── URL per environment ───────────────────────────────────────────────────
   static const String _localUrl = 'http://10.0.2.2:8000/api';
-  static const String _ngrokUrl = 'https://ea96-103-130-131-147.ngrok-free.app/api';
+  static const String _ngrokUrl = 'https://prism-everglade-earthy.ngrok-free.dev/api';
   static const String _prodUrl  = 'https://api.yourdomain.com/api';
 
   static String get baseUrl {

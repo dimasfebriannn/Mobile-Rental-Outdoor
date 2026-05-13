@@ -12,13 +12,13 @@ class ChatScreen extends StatefulWidget {
   /// Jika diberikan, pesan ini akan langsung dikirim saat layar terbuka.
   /// Berguna ketika pengguna tap ikon chat dari halaman detail produk.
   final String? initialMessage;
-  
+
   /// Jika true, menambahkan padding bawah untuk bottom navigation bar.
   /// Gunakan ini ketika ChatScreen digunakan sebagai tab dalam bottom nav.
   final bool hasBottomNavBar;
 
   const ChatScreen({
-    super.key, 
+    super.key,
     this.initialMessage,
     this.hasBottomNavBar = false,
   });
@@ -29,15 +29,15 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // ── Warna brand ────────────────────────────────────────────────────────
-  final Color _cokelatTua   = const Color(0xFF3E2723);
-  final Color _emasMajelis  = const Color(0xFFE5A93D);
-  final Color _latarKrem    = const Color(0xFFF5EFE6);
-  final Color _bubbleUser   = const Color(0xFF3E2723);
-  final Color _bubbleAI     = Colors.white;
+  final Color _cokelatTua = const Color(0xFF3E2723);
+  final Color _emasMajelis = const Color(0xFFE5A93D);
+  final Color _latarKrem = const Color(0xFFF5EFE6);
+  final Color _bubbleUser = const Color(0xFF3E2723);
+  final Color _bubbleAI = Colors.white;
 
-  final TextEditingController _controller   = TextEditingController();
-  final ScrollController       _scrollCtrl  = ScrollController();
-  final FocusNode              _focusNode   = FocusNode();
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
+  final FocusNode _focusNode = FocusNode();
 
   // Prompt chip suggestions
   final List<String> _suggestions = [
@@ -119,26 +119,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   // ── BUILD ──────────────────────────────────────────────────────────────
 
-  @override
+@override
   Widget build(BuildContext context) {
-    // Jika ada initialMessage, berarti dibuka dari detail_screen (full screen)
-    // Jika tidak, berarti diakses dari tab bottom navigation
-    final isFullScreen = widget.initialMessage != null;
-    
     return Scaffold(
       backgroundColor: _latarKrem,
       resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        // FIX: bottom: false hanya saat diakses sebagai tab (untuk hindari hidden input)
-        // bottom: true saat full screen (dari detail) agar status bar teratasi
-        bottom: !widget.hasBottomNavBar,
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(child: _buildBody()),
-            _buildInputArea(),
-          ],
-        ),
+      body: Column( // Hapus SafeArea di sini agar Header menempel ke status bar
+        children: [
+          _buildHeader(),
+          Expanded(child: _buildBody()),
+          _buildInputArea(),
+        ],
       ),
     );
   }
@@ -149,7 +140,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      padding: const EdgeInsets.fromLTRB(
+        24,
+        60,
+        24,
+        20,
+      ), // Padding disamakan dengan HistoryScreen
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -169,17 +165,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   'ASISTEN CHAT',
                   style: TextStyle(
                     color: _emasMajelis,
-                    fontSize: 8,
+                    fontSize: 9, // Disamakan ukurannya
                     fontWeight: FontWeight.w900,
                     letterSpacing: 2,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'ASISTEN MAJELIS RENTAL',
+                  'Asisten Majelis',
                   style: TextStyle(
                     color: _cokelatTua,
-                    fontSize: 18,
+                    fontSize: 22, // Disamakan ukurannya
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,
                   ),
@@ -187,53 +183,54 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ],
             ),
           ),
-          // Icon + Tombol (Kanan)
+
+          // Tombol Action (Kanan)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Tombol clear chat (hidden jika empty atau initialMessage)
+              // Tombol hapus history (hanya muncul jika tidak empty)
               Consumer<ChatProvider>(
-                builder: (_, p, __) => !p.isEmpty && widget.initialMessage == null
+                builder: (_, p, __) =>
+                    !p.isEmpty && widget.initialMessage == null
                     ? GestureDetector(
                         onTap: () => _confirmClear(context),
                         child: Container(
                           padding: const EdgeInsets.all(8),
+                          margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             color: _latarKrem.withOpacity(0.5),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(Icons.delete_outline_rounded,
-                              color: _cokelatTua.withOpacity(0.4), size: 18),
+                          child: Icon(
+                            Icons.delete_outline_rounded,
+                            color: _cokelatTua.withOpacity(0.4),
+                            size: 18,
+                          ),
                         ),
                       )
                     : const SizedBox.shrink(),
               ),
-              const SizedBox(width: 8),
-              // Tombol kembali (hanya jika dibuka dari detail_screen)
-              if (widget.initialMessage != null)
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _latarKrem.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: _cokelatTua, size: 16),
-                  ),
-                )
-              else
-                // Icon AI (hanya saat diakses dari tab)
-                Container(
+
+              // Tombol Back atau Icon AI
+              GestureDetector(
+                onTap: widget.initialMessage != null
+                    ? () => Navigator.pop(context)
+                    : null,
+                child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _emasMajelis.withOpacity(0.15),
+                    color: _latarKrem.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.auto_awesome_rounded,
-                      color: _emasMajelis, size: 18),
+                  child: Icon(
+                    widget.initialMessage != null
+                        ? Icons.arrow_back_ios_new_rounded
+                        : Icons.auto_awesome_rounded,
+                    color: _cokelatTua,
+                    size: 18,
+                  ),
                 ),
+              ),
             ],
           ),
         ],
@@ -241,28 +238,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ── BODY ───────────────────────────────────────────────────────────────
-
   Widget _buildBody() {
     return Consumer<ChatProvider>(
       builder: (context, provider, _) {
         if (provider.state == ChatLoadState.loading && provider.isEmpty) {
-          return Center(
-              child: CircularProgressIndicator(color: _emasMajelis));
+          return Center(child: CircularProgressIndicator(color: _emasMajelis));
         }
 
         if (provider.isEmpty) {
           return _buildEmptyState();
         }
 
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _scrollToBottom());
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
         return ListView.builder(
           controller: _scrollCtrl,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount:
-              provider.messages.length + (provider.isTyping ? 1 : 0),
+          itemCount: provider.messages.length + (provider.isTyping ? 1 : 0),
           itemBuilder: (_, i) {
             if (i == provider.messages.length) {
               return _buildTypingIndicator();
@@ -290,8 +282,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               color: _emasMajelis.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.auto_awesome_rounded,
-                size: 40, color: _emasMajelis),
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              size: 40,
+              color: _emasMajelis,
+            ),
           ),
           const SizedBox(height: 20),
           Text(
@@ -319,17 +314,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             spacing: 8,
             runSpacing: 10,
             alignment: WrapAlignment.center,
-            children: _suggestions
-                .map((s) => _buildSuggestionChip(s))
-                .toList(),
+            children: _suggestions.map((s) => _buildSuggestionChip(s)).toList(),
           ),
           const SizedBox(height: 16),
           // Hint mengetik bebas
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.keyboard_alt_outlined,
-                  size: 14, color: _cokelatTua.withOpacity(0.3)),
+              Icon(
+                Icons.keyboard_alt_outlined,
+                size: 14,
+                color: _cokelatTua.withOpacity(0.3),
+              ),
               const SizedBox(width: 6),
               Text(
                 'Atau ketik pertanyaan bebas di bawah',
@@ -385,12 +381,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
-        crossAxisAlignment:
-            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isUser
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment:
-                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment: isUser
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!isUser) ...[
@@ -402,8 +400,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     color: _emasMajelis.withOpacity(0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.auto_awesome_rounded,
-                      size: 14, color: _emasMajelis),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 14,
+                    color: _emasMajelis,
+                  ),
                 ),
               ],
               Flexible(
@@ -412,7 +413,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     maxWidth: MediaQuery.of(context).size.width * 0.75,
                   ),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: isUser ? _bubbleUser : _bubbleAI,
                     borderRadius: BorderRadius.only(
@@ -429,8 +432,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-                  child:
-                      isUser ? _buildUserText(msg) : _buildAIText(msg),
+                  child: isUser ? _buildUserText(msg) : _buildAIText(msg),
                 ),
               ),
             ],
@@ -441,8 +443,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _buildWhatsAppButton(msg.whatsappUrl!),
 
           // Error & retry
-          if (isUser && msg.status == MessageStatus.error)
-            _buildErrorRetry(),
+          if (isUser && msg.status == MessageStatus.error) _buildErrorRetry(),
 
           // Timestamp
           Padding(
@@ -474,7 +475,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 child: Text(
                   msg.content,
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 14, height: 1.4),
+                    color: Colors.white,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
@@ -484,7 +488,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 child: CircularProgressIndicator(
                   strokeWidth: 1.5,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.white.withOpacity(0.7)),
+                    Colors.white.withOpacity(0.7),
+                  ),
                 ),
               ),
             ],
@@ -492,7 +497,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         : Text(
             msg.content,
             style: const TextStyle(
-                color: Colors.white, fontSize: 14, height: 1.4),
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.4,
+            ),
           );
   }
 
@@ -501,17 +509,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       data: msg.content,
       styleSheet: MarkdownStyleSheet(
         p: TextStyle(color: _cokelatTua, fontSize: 14, height: 1.5),
-        strong: TextStyle(
-            color: _cokelatTua, fontWeight: FontWeight.w800),
+        strong: TextStyle(color: _cokelatTua, fontWeight: FontWeight.w800),
         listBullet: TextStyle(color: _cokelatTua),
         h1: TextStyle(
-            color: _cokelatTua,
-            fontSize: 16,
-            fontWeight: FontWeight.w900),
+          color: _cokelatTua,
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+        ),
         h2: TextStyle(
-            color: _cokelatTua,
-            fontSize: 15,
-            fontWeight: FontWeight.w800),
+          color: _cokelatTua,
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        ),
         code: TextStyle(
           backgroundColor: _emasMajelis.withOpacity(0.08),
           color: _cokelatTua,
@@ -528,8 +537,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       child: GestureDetector(
         onTap: () => _openWhatsApp(url),
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF25D366), Color(0xFF128C7E)],
@@ -546,19 +554,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              FaIcon(FontAwesomeIcons.whatsapp,
-                  color: Colors.white, size: 16),
+              FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white, size: 16),
               SizedBox(width: 6),
               Text(
                 'Hubungi Admin WhatsApp',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700),
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded,
-                  color: Colors.white, size: 14),
+              Icon(Icons.chevron_right_rounded, color: Colors.white, size: 14),
             ],
           ),
         ),
@@ -574,13 +581,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Icon(Icons.refresh_rounded,
-                size: 12, color: Colors.red.withOpacity(0.7)),
+            Icon(
+              Icons.refresh_rounded,
+              size: 12,
+              color: Colors.red.withOpacity(0.7),
+            ),
             const SizedBox(width: 4),
             Text(
               'Gagal terkirim. Tap untuk coba lagi.',
               style: TextStyle(
-                  color: Colors.red.withOpacity(0.7), fontSize: 10),
+                color: Colors.red.withOpacity(0.7),
+                fontSize: 10,
+              ),
             ),
           ],
         ),
@@ -597,8 +609,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.only(
@@ -628,17 +639,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // FIX: Ambil tinggi safe area bawah (home indicator / sistem nav gesture)
     // agar input bar tidak tertutup di perangkat tanpa tombol fisik.
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     // FIX: Tambahkan padding untuk bottom navigation bar jika digunakan sebagai tab
     final navBarPadding = widget.hasBottomNavBar ? 88.0 : 0.0;
 
     return Container(
       // Tambahkan bottomPadding ke padding bawah container + navBarPadding
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 16 + bottomPadding + navBarPadding),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        16 + bottomPadding + navBarPadding,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        border:
-            Border(top: BorderSide(color: _cokelatTua.withOpacity(0.05), width: 1)),
+        border: Border(
+          top: BorderSide(color: _cokelatTua.withOpacity(0.05), width: 1),
+        ),
         boxShadow: [
           BoxShadow(
             color: _cokelatTua.withOpacity(0.04),
@@ -657,8 +674,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               decoration: BoxDecoration(
                 color: _latarKrem,
                 borderRadius: BorderRadius.circular(24),
-                border:
-                    Border.all(color: _cokelatTua.withOpacity(0.08), width: 1),
+                border: Border.all(
+                  color: _cokelatTua.withOpacity(0.08),
+                  width: 1,
+                ),
               ),
               child: TextField(
                 controller: _controller,
@@ -674,7 +693,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     fontSize: 14,
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 12),
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
                   border: InputBorder.none,
                   suffixIcon: ValueListenableBuilder<TextEditingValue>(
                     valueListenable: _controller,
@@ -736,11 +757,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white),
+                                Colors.white,
+                              ),
                             ),
                           )
-                        : Icon(Icons.send_rounded,
-                            color: Colors.white, size: canSend ? 20 : 18),
+                        : Icon(
+                            Icons.send_rounded,
+                            color: Colors.white,
+                            size: canSend ? 20 : 18,
+                          ),
                   ),
                 );
               },
@@ -757,11 +782,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        title: Text('Hapus Riwayat Chat',
-            style: TextStyle(
-                color: _cokelatTua, fontWeight: FontWeight.w900)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Hapus Riwayat Chat',
+          style: TextStyle(color: _cokelatTua, fontWeight: FontWeight.w900),
+        ),
         content: Text(
           'Semua percakapan akan dihapus. Lanjutkan?',
           style: TextStyle(color: _cokelatTua.withOpacity(0.7)),
@@ -769,19 +794,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Batal',
-                style:
-                    TextStyle(color: _cokelatTua.withOpacity(0.5))),
+            child: Text(
+              'Batal',
+              style: TextStyle(color: _cokelatTua.withOpacity(0.5)),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               context.read<ChatProvider>().clearChat();
             },
-            child: Text('Hapus',
-                style: TextStyle(
-                    color: Colors.red.shade400,
-                    fontWeight: FontWeight.w700)),
+            child: Text(
+              'Hapus',
+              style: TextStyle(
+                color: Colors.red.shade400,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -823,8 +852,12 @@ class _TypingDotsState extends State<_TypingDots>
       ),
     );
     _anims = _ctrls
-        .map((c) => Tween<double>(begin: 0, end: 6).animate(
-            CurvedAnimation(parent: c, curve: Curves.easeInOut)))
+        .map(
+          (c) => Tween<double>(
+            begin: 0,
+            end: 6,
+          ).animate(CurvedAnimation(parent: c, curve: Curves.easeInOut)),
+        )
         .toList();
 
     for (var i = 0; i < 3; i++) {

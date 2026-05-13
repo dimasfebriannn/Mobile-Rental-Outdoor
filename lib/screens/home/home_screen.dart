@@ -378,105 +378,144 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Header Premium ─────────────────────────────────────────────────────────
-  Widget _buildHeader() {
+Widget _buildHeader() {
     return AnimatedBuilder(
       animation: _headerAnim,
       builder: (_, __) => Opacity(
         opacity: _headerAnim.value.clamp(0.0, 1.0),
         child: Transform.translate(
-          offset: Offset(0, 12 * (1 - _headerAnim.value)),
+          offset: Offset(0, 8 * (1 - _headerAnim.value)), // Offset diperhalus
           child: Container(
-            padding: const EdgeInsets.fromLTRB(24, 60, 24, 22),
+            // Padding disamakan persis dengan History & Chat (Slim Design)
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
             decoration: BoxDecoration(
               color: putih,
-              boxShadow: [BoxShadow(
-                color: cokelatTua.withOpacity(0.04),
-                blurRadius: 12, offset: const Offset(0, 4),
-              )],
+              border: Border(
+                bottom: BorderSide(color: cokelatTua.withOpacity(0.05), width: 1),
+              ),
+              // Shadow dibuat lebih subtle agar tidak "berat"
+              boxShadow: [
+                BoxShadow(
+                  color: cokelatTua.withOpacity(0.02),
+                  blurRadius: 10, offset: const Offset(0, 4),
+                )
+              ],
             ),
-            child: Row(children: [
-              // Greeting
-              Expanded(child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: emasMajelis.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: emasMajelis.withOpacity(0.3)),
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Container(
-                          width: 6, height: 6,
-                          decoration: BoxDecoration(
-                            color: emasMajelis, shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(
-                              color: emasMajelis.withOpacity(0.6),
-                              blurRadius: 4, spreadRadius: 1,
-                            )],
-                          ),
+            child: Row(
+              children: [
+                // 1. GREETING AREA (Kiri)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Tag Brand (Gaya label konsisten dengan menu lain)
+                      Text(
+                        'MAJELIS RENTAL',
+                        style: TextStyle(
+                          color: emasMajelis,
+                          fontSize: 9, // Ukuran label standar
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
                         ),
-                        const SizedBox(width: 6),
-                        Text('MAJELIS RENTAL',
-                            style: TextStyle(color: emasMajelis,
-                                fontSize: 9, fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5)),
-                      ]),
-                    ),
-                  ]),
-                  const SizedBox(height: 8),
-                  RichText(text: TextSpan(
-                    style: TextStyle(color: cokelatTua, fontWeight: FontWeight.w900,
-                        fontSize: 24, height: 1.15, letterSpacing: -0.5),
-                    children: const [
-                      TextSpan(text: 'Halo, '),
-                      TextSpan(text: 'Dimas 👋'),
+                      ),
+                      const SizedBox(height: 2),
+                      // Nama User
+                      Text(
+                        'Halo, Dimas 👋',
+                        style: TextStyle(
+                          color: cokelatTua,
+                          fontSize: 22, // Ukuran judul standar
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
                     ],
-                  )),
-                  const SizedBox(height: 4),
-                  Text('Mau mendaki ke mana hari ini?',
-                      style: TextStyle(color: cokelatTua.withOpacity(0.4),
-                          fontSize: 13, fontWeight: FontWeight.w500)),
-                ],
-              )),
-              const SizedBox(width: 16),
-              // Actions kanan
-              Row(children: [
-                _buildIconAction(
-                  icon: Icons.shopping_bag_outlined,
-                  badge: 2,
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const CartScreen())),
-                ),
-                const SizedBox(width: 10),
-                _buildIconAction(
-                  icon: Icons.notifications_none_rounded,
-                  badge: 5,
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const NotificationScreen())),
-                ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const ProfileScreen())),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: emasMajelis.withOpacity(0.5), width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 19,
-                      backgroundColor: latarKrem,
-                      backgroundImage: const AssetImage('lib/assets/img/majelis.png'),
-                    ),
                   ),
                 ),
-              ]),
-            ]),
+
+                // 2. ACTION ICONS (Kanan - Menggunakan gaya kotak radius 10)
+                Row(
+                  children: [
+                    _buildHeaderAction(
+                      icon: Icons.shopping_bag_outlined,
+                      badge: 2,
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const CartScreen())),
+                    ),
+                    const SizedBox(width: 10),
+                    _buildHeaderAction(
+                      icon: Icons.notifications_none_rounded,
+                      badge: 5,
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                    ),
+                    const SizedBox(width: 12),
+                    // Avatar Profile
+                    GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const ProfileScreen())),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: emasMajelis.withOpacity(0.3), width: 1.5),
+                        ),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: latarKrem,
+                          backgroundImage: const AssetImage('lib/assets/img/majelis.png'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  // Widget Helper untuk Icon Action agar konsisten dengan History/Chat
+  Widget _buildHeaderAction({required IconData icon, int badge = 0, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: latarKrem.withOpacity(0.5), // Latar belakang subtle
+              borderRadius: BorderRadius.circular(10), // Radius 10 standar
+            ),
+            child: Icon(icon, color: cokelatTua, size: 20),
+          ),
+          if (badge > 0)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: emasMajelis,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: putih, width: 1.5),
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Text(
+                  badge.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: putih,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

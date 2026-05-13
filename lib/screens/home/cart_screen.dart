@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'checkout_screen.dart'; // Sesuaikan dengan path file kamu
+import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -32,9 +32,6 @@ class _CartScreenState extends State<CartScreen> {
     },
   ];
 
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now().add(const Duration(days: 2));
-
   String _formatCurrency(double amount) {
     return NumberFormat.currency(
       locale: 'id',
@@ -43,14 +40,11 @@ class _CartScreenState extends State<CartScreen> {
     ).format(amount);
   }
 
-  int get _duration => _endDate.difference(_startDate).inDays > 0
-      ? _endDate.difference(_startDate).inDays
-      : 1;
-
-  double get _totalPrice {
+  // Estimasi total di keranjang dihitung per 1 hari sebagai standar awal
+  double get _totalEstimationPerDay {
     double total = 0;
     for (var item in cartItems) {
-      total += (item['harga_per_hari'] * item['qty'] * _duration);
+      total += (item['harga_per_hari'] * item['qty']);
     }
     return total;
   }
@@ -61,12 +55,12 @@ class _CartScreenState extends State<CartScreen> {
       backgroundColor: creamBg,
       body: Stack(
         children: [
-          // Background Accent (Konsisten dengan Submenu Profile)
+          // Background Accent
           Positioned(
             top: -30,
             left: -30,
             child: Icon(
-              Icons.shopping_cart_rounded,
+              Icons.shopping_bag_outlined,
               size: 300,
               color: darkBrown.withOpacity(0.03),
             ),
@@ -80,8 +74,7 @@ class _CartScreenState extends State<CartScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 110, 24, 140),
                 child: Column(
                   children: [
-                    _buildDateCard(),
-                    const SizedBox(height: 32),
+                    // Langsung masuk ke Daftar Perlengkapan agar lebih ramping
                     _buildSectionLabel("DAFTAR PERLENGKAPAN"),
                     ...cartItems
                         .asMap()
@@ -162,67 +155,6 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  // --- REVISI: DATE CARD LEBIH CLEAN & TIDAK GONJRENG ---
-  Widget _buildDateCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: BoxDecoration(
-        color: Colors.white, // Diubah dari coklat ke putih agar lebih clean
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: darkBrown.withOpacity(0.08), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: darkBrown.withOpacity(0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _dateInfo("AMBIL", _startDate),
-          // Icon pemisah dibuat lebih subtle
-          Icon(
-            Icons.arrow_forward_ios_rounded,
-            color: darkBrown.withOpacity(0.1),
-            size: 16,
-          ),
-          _dateInfo("KEMBALI", _endDate),
-        ],
-      ),
-    );
-  }
-
-  Widget _dateInfo(String label, DateTime date) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label menggunakan emas tetap untuk aksen luxury
-        Text(
-          label,
-          style: TextStyle(
-            color: goldenYellow,
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 6),
-        // Teks tanggal diubah jadi coklat tua agar elegan di atas putih
-        Text(
-          DateFormat('dd MMMM yyyy').format(date).toUpperCase(),
-          style: TextStyle(
-            color: darkBrown,
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildSectionLabel(String label) {
     return Container(
       width: double.infinity,
@@ -288,9 +220,7 @@ class _CartScreenState extends State<CartScreen> {
                   children: [
                     _buildQtyCounter(index),
                     Text(
-                      _formatCurrency(
-                        item['harga_per_hari'] * item['qty'] * _duration,
-                      ),
+                      _formatCurrency(item['harga_per_hari'] * item['qty']),
                       style: TextStyle(
                         color: darkBrown,
                         fontSize: 14,
@@ -348,7 +278,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-Widget _buildFloatingCheckout() {
+  Widget _buildFloatingCheckout() {
     return Positioned(
       bottom: 0,
       left: 0,
@@ -373,7 +303,7 @@ Widget _buildFloatingCheckout() {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "TOTAL ESTIMASI",
+                  "ESTIMASI HARGA / HARI",
                   style: TextStyle(
                     color: darkBrown.withOpacity(0.3),
                     fontSize: 10,
@@ -382,7 +312,7 @@ Widget _buildFloatingCheckout() {
                   ),
                 ),
                 Text(
-                  _formatCurrency(_totalPrice),
+                  _formatCurrency(_totalEstimationPerDay),
                   style: TextStyle(
                     color: darkBrown,
                     fontSize: 22,
@@ -391,20 +321,18 @@ Widget _buildFloatingCheckout() {
                 ),
               ],
             ),
-            const SizedBox(width: 25),
+            const SizedBox(width: 20),
             Expanded(
               child: SizedBox(
                 height: 55,
                 child: ElevatedButton(
-                  // --- LOGIKA NAVIGASI KE CHECKOUT ---
                   onPressed: () {
+                    // Berpindah ke Checkout dengan mengirimkan harga total harian
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => CheckoutScreen(
-                          totalSewa: _totalPrice,
-                          tglAmbil: _startDate,
-                          tglKembali: _endDate,
+                          hargaPerHari: _totalEstimationPerDay,
                         ),
                       ),
                     );
@@ -417,7 +345,7 @@ Widget _buildFloatingCheckout() {
                     elevation: 0,
                   ),
                   child: const Text(
-                    "CHECKOUT",
+                    "LANJUT",
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
