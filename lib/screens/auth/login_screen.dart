@@ -89,15 +89,58 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _goToHome() => _navigateTo(const HomeScreen(), isReplacement: true);
 
-  // ── Snackbar Helper ───────────────────────────────────
+  // ── Snackbar Helpers ──────────────────────────────────
+
+  /// Snackbar merah — untuk error umum (password salah, dll)
   void _showError(String message) {
     if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message)),
+          ],
+        ),
         backgroundColor: Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// Snackbar amber — untuk peringatan metode login yang salah
+  void _showProviderWarning({
+    required String message,
+    required IconData icon,
+  }) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFB8860B), // dark golden
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 5),
       ),
     );
   }
@@ -115,25 +158,21 @@ class _LoginScreenState extends State<LoginScreen>
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              const Text(
                 'Agar bisa login menggunakan email & password, buat password terlebih dahulu.',
               ),
               const SizedBox(height: 16),
-
               TextField(
                 controller: passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Password'),
               ),
-
               const SizedBox(height: 12),
-
               TextField(
                 controller: confirmController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Konfirmasi Password',
-                ),
+                decoration:
+                    const InputDecoration(labelText: 'Konfirmasi Password'),
               ),
             ],
           ),
@@ -159,7 +198,6 @@ class _LoginScreenState extends State<LoginScreen>
                     );
 
                 if (!mounted) return;
-
                 Navigator.pop(context);
 
                 if (result.success) {
@@ -207,9 +245,19 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (result.success) {
       _goToHome();
-    } else {
-      _showError(result.message ?? 'Login gagal.');
+      return;
     }
+
+    // Akun ini terdaftar via Google → tampilkan peringatan khusus
+    if (result.authProvider == 'google') {
+      _showProviderWarning(
+        message: 'Akun ini terdaftar via Google. Gunakan tombol "Google Account" untuk login.',
+        icon: Icons.g_mobiledata_rounded,
+      );
+      return;
+    }
+
+    _showError(result.message ?? 'Login gagal.');
   }
 
   Future<void> _handleGoogleLogin() async {
@@ -222,7 +270,6 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (result.success) {
       final hasPassword = result.user?['has_password'] == true;
-
       final email = result.user?['email'];
 
       if (!hasPassword && email != null) {
@@ -230,7 +277,22 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       _goToHome();
+      return;
     }
+
+    // Akun ini terdaftar via email → tampilkan peringatan khusus
+    if (result.authProvider == 'email') {
+      _showProviderWarning(
+        message: 'Akun ini terdaftar via email. Gunakan email & kata sandi untuk login.',
+        icon: Icons.email_outlined,
+      );
+      return;
+    }
+
+    // Dibatalkan user → tidak perlu tampilkan error
+    if (result.message == 'Login Google dibatalkan.') return;
+
+    _showError(result.message ?? 'Login Google gagal.');
   }
 
   // ─────────────────────────────────────────────────────
@@ -492,13 +554,10 @@ class _LoginScreenState extends State<LoginScreen>
 
                         Row(
                           children: [
-                            Expanded(
-                              child: Divider(color: Colors.grey.shade200),
-                            ),
+                            Expanded(child: Divider(color: Colors.grey.shade200)),
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               child: Text(
                                 'ATAU',
                                 style: TextStyle(
@@ -509,9 +568,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                             ),
-                            Expanded(
-                              child: Divider(color: Colors.grey.shade200),
-                            ),
+                            Expanded(child: Divider(color: Colors.grey.shade200)),
                           ],
                         ),
 
@@ -522,9 +579,8 @@ class _LoginScreenState extends State<LoginScreen>
                           width: double.infinity,
                           height: 52,
                           child: OutlinedButton(
-                            onPressed: _isGoogleLoading
-                                ? null
-                                : _handleGoogleLogin,
+                            onPressed:
+                                _isGoogleLoading ? null : _handleGoogleLogin,
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: Colors.grey.shade300),
                               shape: RoundedRectangleBorder(

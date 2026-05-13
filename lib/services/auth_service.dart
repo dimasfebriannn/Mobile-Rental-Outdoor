@@ -11,7 +11,16 @@ class AuthResult {
   final String? message;
   final Map<String, dynamic>? user;
 
-  AuthResult({required this.success, this.message, this.user});
+  /// Diisi oleh server ketika user mencoba login dengan metode yang salah.
+  /// Nilai: 'google' → harus pakai Google, 'email' → harus pakai email.
+  final String? authProvider;
+
+  AuthResult({
+    required this.success,
+    this.message,
+    this.user,
+    this.authProvider,
+  });
 }
 
 class AuthService {
@@ -48,7 +57,6 @@ class AuthService {
       });
 
       if (response.statusCode == 201) {
-        // 3. Simpan Sanctum token
         final token = response.data['token'] as String;
         await _api.saveToken(token);
 
@@ -59,14 +67,12 @@ class AuthService {
         );
       }
 
-      // Jika Laravel gagal, hapus akun Firebase yang terlanjur dibuat
       await firebaseCredential.user?.delete();
       return AuthResult(success: false, message: 'Gagal mendaftar ke server.');
     } on FirebaseAuthException catch (e) {
       return AuthResult(success: false, message: _firebaseErrorMessage(e.code));
     } on DioException catch (e) {
       final msg = e.response?.data?['message'] ?? 'Koneksi ke server gagal.';
-      // Hapus akun Firebase jika API Laravel gagal
       await _firebaseAuth.currentUser?.delete();
       return AuthResult(success: false, message: msg);
     } catch (e) {
@@ -76,28 +82,20 @@ class AuthService {
 
   // ─────────────────────────────────────────────────────
   // LOGIN dengan Email & Password
-  // Flow: Firebase login → Laravel API login → simpan token
+  //
+  // Firebase TIDAK digunakan di sini — cukup Laravel Sanctum.
+  // Jika server mengembalikan auth_provider: 'google', berarti
+  // akun ini harus login via Google.
   // ─────────────────────────────────────────────────────
   Future<AuthResult> loginWithEmail({
     required String email,
     required String password,
   }) async {
     try {
-      print('LOGIN START');
-
-      await _firebaseAuth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      print('REQUEST TO API');
-
       final response = await _api.post(ApiConfig.login, {
         'email': email,
         'password': password,
       });
-
-      print(response.data);
 
       if (response.statusCode == 200) {
         final token = response.data['token'] as String;
@@ -110,20 +108,14 @@ class AuthService {
         );
       }
 
-      await _firebaseAuth.signOut();
       return AuthResult(success: false, message: 'Login ke server gagal.');
-    } on FirebaseAuthException catch (e) {
-      return AuthResult(success: false, message: _firebaseErrorMessage(e.code));
     } on DioException catch (e) {
-      await _firebaseAuth.signOut();
-      final msg = e.response?.data?['message'] ?? 'Koneksi ke server gagal.';
-      return AuthResult(success: false, message: msg);
+      final data = e.response?.data;
+      final msg = data?['message'] ?? 'Koneksi ke server gagal.';
+      // auth_provider: 'google' → akun ini terdaftar via Google
+      final provider = data?['auth_provider'] as String?;
+      return AuthResult(success: false, message: msg, authProvider: provider);
     } catch (e) {
-      print('========================');
-      print('GOOGLE LOGIN ERROR');
-      print(e);
-      print('========================');
-
       return AuthResult(success: false, message: 'Terjadi kesalahan: $e');
     }
   }
@@ -131,41 +123,35 @@ class AuthService {
   // ─────────────────────────────────────────────────────
   // LOGIN dengan Google
   // Flow: Google Sign-In → Firebase → Laravel API → simpan token
+  //
+  // Jika server mengembalikan auth_provider: 'email', berarti
+  // akun ini harus login via email & password.
   // ─────────────────────────────────────────────────────
   Future<AuthResult> loginWithGoogle() async {
     try {
       await _googleSignIn.signOut();
-      // 1. Trigger Google Sign-In popup
+
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         return AuthResult(success: false, message: 'Login Google dibatalkan.');
       }
 
-      // 2. Dapatkan auth tokens Google
       final googleAuth = await googleUser.authentication;
-
-      // 3. Buat Firebase credential dari token Google
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // 4. Sign in ke Firebase dengan credential Google
-      final firebaseCredential = await _firebaseAuth.signInWithCredential(
-        credential,
-      );
+      final firebaseCredential =
+          await _firebaseAuth.signInWithCredential(credential);
       final user = firebaseCredential.user!;
 
-      // Cek apakah akun Google sudah punya provider password
-      final methods = await _firebaseAuth.fetchSignInMethodsForEmail(
-        user.email!,
-      );
-
+      final methods =
+          await _firebaseAuth.fetchSignInMethodsForEmail(user.email!);
       final hasPasswordProvider = methods.contains('password');
 
-      // 5. Kirim data Google user ke Laravel untuk disimpan/diperbarui di MySQL
       final response = await _api.post(ApiConfig.googleAuth, {
-        'google_id': user.uid, // Firebase UID (juga Google UID)
+        'google_id': user.uid,
         'name': user.displayName ?? googleUser.displayName ?? '',
         'email': user.email ?? googleUser.email,
         'avatar': user.photoURL ?? googleUser.photoUrl,
@@ -175,8 +161,8 @@ class AuthService {
         final token = response.data['token'] as String;
         await _api.saveToken(token);
 
-        final userData = response.data['user'] as Map<String, dynamic>? ?? {};
-
+        final userData =
+            response.data['user'] as Map<String, dynamic>? ?? {};
         userData['has_password'] = hasPasswordProvider;
 
         return AuthResult(
@@ -197,8 +183,11 @@ class AuthService {
     } on DioException catch (e) {
       await _firebaseAuth.signOut();
       await _googleSignIn.signOut();
-      final msg = e.response?.data?['message'] ?? 'Koneksi ke server gagal.';
-      return AuthResult(success: false, message: msg);
+      final data = e.response?.data;
+      final msg = data?['message'] ?? 'Koneksi ke server gagal.';
+      // auth_provider: 'email' → akun ini terdaftar via email
+      final provider = data?['auth_provider'] as String?;
+      return AuthResult(success: false, message: msg, authProvider: provider);
     } catch (e) {
       return AuthResult(success: false, message: 'Terjadi kesalahan: $e');
     }
@@ -218,7 +207,6 @@ class AuthService {
         return AuthResult(success: false, message: 'User belum login.');
       }
 
-      // Tambahkan provider password ke akun Firebase
       final credential = EmailAuthProvider.credential(
         email: email,
         password: password,
@@ -226,7 +214,6 @@ class AuthService {
 
       await user.linkWithCredential(credential);
 
-      // Simpan password ke Laravel
       await _api.post(ApiConfig.setPassword, {
         'email': email,
         'password': password,
@@ -241,11 +228,12 @@ class AuthService {
           message: 'Password sudah pernah dibuat.',
         );
       }
-
       if (e.code == 'credential-already-in-use') {
-        return AuthResult(success: false, message: 'Password sudah digunakan.');
+        return AuthResult(
+          success: false,
+          message: 'Password sudah digunakan.',
+        );
       }
-
       return AuthResult(success: false, message: _firebaseErrorMessage(e.code));
     } on DioException catch (e) {
       final msg = e.response?.data?['message'] ?? 'Server gagal.';
@@ -260,7 +248,7 @@ class AuthService {
   // ─────────────────────────────────────────────────────
   Future<void> logout() async {
     try {
-      await _api.delete(ApiConfig.logout); // revoke token di Laravel
+      await _api.delete(ApiConfig.logout);
     } catch (_) {}
     await _api.clearToken();
     await _firebaseAuth.signOut();
