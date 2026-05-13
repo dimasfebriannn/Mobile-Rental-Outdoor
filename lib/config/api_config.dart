@@ -42,13 +42,20 @@ class ApiConfig {
   static const String changePassword = '/profile/change-password';
 
   // ── AI Recommendation Endpoints ───────────────────────────────────────────
-  /// POST /api/recommendation/image  — upload gambar, terima rekomendasi
   static const String recommendationImage   = '/recommendation/image';
-
-  /// GET  /api/recommendation/history — riwayat rekomendasi user login
   static const String recommendationHistory = '/recommendation/history';
+
+  // ── AI Chat Assistant Endpoints ───────────────────────────────────────────
+  /// POST /api/chat          → kirim pesan ke AI
+  static const String chat        = '/chat';
+
+  /// GET  /api/chat/history  → ambil riwayat chat
+  static const String chatHistory = '/chat/history';
+
+  /// DELETE /api/chat/clear  → hapus riwayat chat
+  static const String chatClear   = '/chat/clear';
 
   // ── Dio settings ──────────────────────────────────────────────────────────
   static const int connectTimeout = 30000;
-  static const int receiveTimeout = 60000; // Lebih lama untuk AI processing
+  static const int receiveTimeout = 60000;
 }

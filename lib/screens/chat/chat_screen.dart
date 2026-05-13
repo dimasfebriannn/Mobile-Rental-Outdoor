@@ -1,283 +1,870 @@
+// lib/screens/chat/chat_screen.dart
+
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../models/chat_message.dart';
+import '../../providers/chat_provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  /// Jika diberikan, pesan ini akan langsung dikirim saat layar terbuka.
+  /// Berguna ketika pengguna tap ikon chat dari halaman detail produk.
+  final String? initialMessage;
+  
+  /// Jika true, menambahkan padding bawah untuk bottom navigation bar.
+  /// Gunakan ini ketika ChatScreen digunakan sebagai tab dalam bottom nav.
+  final bool hasBottomNavBar;
+
+  const ChatScreen({
+    super.key, 
+    this.initialMessage,
+    this.hasBottomNavBar = false,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
-  final Color cokelatTua = const Color(0xFF3E2723);
-  final Color emasMajelis = const Color(0xFFE5A93D);
-  final Color latarKrem = const Color(0xFFF5EFE6);
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+  // ── Warna brand ────────────────────────────────────────────────────────
+  final Color _cokelatTua   = const Color(0xFF3E2723);
+  final Color _emasMajelis  = const Color(0xFFE5A93D);
+  final Color _latarKrem    = const Color(0xFFF5EFE6);
+  final Color _bubbleUser   = const Color(0xFF3E2723);
+  final Color _bubbleAI     = Colors.white;
 
-  // LOGIKA WHATSAPP
-  Future<void> _hubungiAdmin(BuildContext context, String pesan) async {
-    final String nomorWA = "6281358609650";
-    final Uri urlApp = Uri.parse("whatsapp://send?phone=$nomorWA&text=${Uri.encodeComponent(pesan)}");
-    final Uri urlWeb = Uri.parse("https://wa.me/$nomorWA?text=${Uri.encodeComponent(pesan)}");
+  final TextEditingController _controller   = TextEditingController();
+  final ScrollController       _scrollCtrl  = ScrollController();
+  final FocusNode              _focusNode   = FocusNode();
 
-    try {
-      if (await canLaunchUrl(urlApp)) {
-        await launchUrl(urlApp);
-      } else {
-        await launchUrl(urlWeb, mode: LaunchMode.externalApplication);
+  // Prompt chip suggestions
+  final List<String> _suggestions = [
+    '🏕️ Cara menyewa alat',
+    '💰 Berapa harga sewa?',
+    '📋 Syarat & ketentuan',
+    '⏰ Jam operasional',
+    '⚡ Apa itu denda?',
+    '🎒 Rekomendasi untuk pendakian',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<ChatProvider>().loadHistory();
+
+      // Jika ada initialMessage (dari halaman detail produk), kirim otomatis
+      if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
+        _controller.text = widget.initialMessage!;
+        await _send();
       }
-    } catch (e) {
-      if (context.mounted) {
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _controller.dispose();
+    _scrollCtrl.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    // Auto scroll saat keyboard muncul
+    Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
+  }
+
+  void _scrollToBottom() {
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        _scrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    _controller.clear();
+    _focusNode.unfocus();
+    await context.read<ChatProvider>().sendMessage(text);
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+  }
+
+  Future<void> _openWhatsApp(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text("Gagal membuka WhatsApp. Pastikan aplikasi terpasang."),
-            backgroundColor: cokelatTua,
+            content: const Text('Gagal membuka WhatsApp'),
+            backgroundColor: _cokelatTua,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
     }
   }
 
+  // ── BUILD ──────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
+    // Jika ada initialMessage, berarti dibuka dari detail_screen (full screen)
+    // Jika tidak, berarti diakses dari tab bottom navigation
+    final isFullScreen = widget.initialMessage != null;
+    
     return Scaffold(
-      backgroundColor: latarKrem,
-      body: Column(
-        children: [
-          // 1. LUXURY HEADER (Tinggi & Padding Sama Presisi dengan Home)
-          _buildLuxuryHeader(),
+      backgroundColor: _latarKrem,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        // FIX: bottom: false hanya saat diakses sebagai tab (untuk hindari hidden input)
+        // bottom: true saat full screen (dari detail) agar status bar teratasi
+        bottom: !widget.hasBottomNavBar,
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(child: _buildBody()),
+            _buildInputArea(),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // 2. DAFTAR LAYANAN CONCIERGE
+  // ── HEADER ─────────────────────────────────────────────────────────────
+  // (Mirip dengan style history_screen untuk konsistensi)
+
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: _cokelatTua.withOpacity(0.05), width: 1),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Label + Judul (Kiri)
           Expanded(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(26, 25, 24, 10),
-                    child: Text(
-                      "PILIH KATEGORI LAYANAN",
-                      style: TextStyle(
-                        color: cokelatTua.withOpacity(0.3),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ASISTEN CHAT',
+                  style: TextStyle(
+                    color: _emasMajelis,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
                   ),
                 ),
-
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      _buildEliteContactTile(
-                        context,
-                        "Cek Stok & Booking",
-                        "Tanya ketersediaan alat untuk tanggal pendakian Anda",
-                        Icons.inventory_2_outlined,
-                        "Halo Admin Majelis Adventure, saya ingin mengecek ketersediaan alat untuk tanggal...",
-                        emasMajelis,
-                      ),
-                      _buildEliteContactTile(
-                        context,
-                        "Pembayaran & Deposit",
-                        "Konfirmasi transfer atau klaim pengembalian dana",
-                        Icons.payments_outlined,
-                        "Halo Admin, saya ingin konfirmasi pembayaran atau pengembalian deposit untuk pesanan...",
-                        emasMajelis,
-                      ),
-                      _buildEliteContactTile(
-                        context,
-                        "Perpanjang Sewa",
-                        "Tambah durasi sewa alat yang sedang Anda gunakan",
-                        Icons.more_time_rounded,
-                        "Halo Admin, saya ingin memperpanjang durasi sewa perlengkapan saya...",
-                        emasMajelis,
-                      ),
-                      _buildEliteContactTile(
-                        context,
-                        "Lapor Kendala & Hilang",
-                        "Laporan kerusakan atau kehilangan alat rental",
-                        Icons.report_gmailerrorred_rounded,
-                        "PENTING: Saya ingin melaporkan adanya kendala atau kehilangan pada barang rental...",
-                        const Color(0xFFE24A4A), // Soft Red
-                      ),
-                      
-                      const SizedBox(height: 40),
-                      _buildFooterInfo(),
-                      const SizedBox(height: 120),
-                    ]),
+                const SizedBox(height: 2),
+                Text(
+                  'ASISTEN MAJELIS RENTAL',
+                  style: TextStyle(
+                    color: _cokelatTua,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
                   ),
                 ),
               ],
             ),
           ),
+          // Icon + Tombol (Kanan)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Tombol clear chat (hidden jika empty atau initialMessage)
+              Consumer<ChatProvider>(
+                builder: (_, p, __) => !p.isEmpty && widget.initialMessage == null
+                    ? GestureDetector(
+                        onTap: () => _confirmClear(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _latarKrem.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.delete_outline_rounded,
+                              color: _cokelatTua.withOpacity(0.4), size: 18),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              const SizedBox(width: 8),
+              // Tombol kembali (hanya jika dibuka dari detail_screen)
+              if (widget.initialMessage != null)
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _latarKrem.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
+                        color: _cokelatTua, size: 16),
+                  ),
+                )
+              else
+                // Icon AI (hanya saat diakses dari tab)
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _emasMajelis.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.auto_awesome_rounded,
+                      color: _emasMajelis, size: 18),
+                ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  // HEADER: Identik dengan HomeScreen (Padding 60px atas, 20px bawah)
-  Widget _buildLuxuryHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0x0D3E2723), width: 1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // ── BODY ───────────────────────────────────────────────────────────────
+
+  Widget _buildBody() {
+    return Consumer<ChatProvider>(
+      builder: (context, provider, _) {
+        if (provider.state == ChatLoadState.loading && provider.isEmpty) {
+          return Center(
+              child: CircularProgressIndicator(color: _emasMajelis));
+        }
+
+        if (provider.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _scrollToBottom());
+
+        return ListView.builder(
+          controller: _scrollCtrl,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          itemCount:
+              provider.messages.length + (provider.isTyping ? 1 : 0),
+          itemBuilder: (_, i) {
+            if (i == provider.messages.length) {
+              return _buildTypingIndicator();
+            }
+            return _buildMessageBubble(provider.messages[i]);
+          },
+        );
+      },
+    );
+  }
+
+  // ── EMPTY STATE ────────────────────────────────────────────────────────
+
+  Widget _buildEmptyState() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 20),
+          // Ilustrasi
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              color: _emasMajelis.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.auto_awesome_rounded,
+                size: 40, color: _emasMajelis),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Hai! Saya Asisten Majelis 👋',
+            style: TextStyle(
+              color: _cokelatTua,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Saya siap membantu pertanyaan seputar penyewaan alat outdoor.\n'
+            'Ketik pertanyaan Anda atau pilih topik di bawah!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _cokelatTua.withOpacity(0.5),
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 28),
+          // Suggestion chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: _suggestions
+                .map((s) => _buildSuggestionChip(s))
+                .toList(),
+          ),
+          const SizedBox(height: 16),
+          // Hint mengetik bebas
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Icon(Icons.keyboard_alt_outlined,
+                  size: 14, color: _cokelatTua.withOpacity(0.3)),
+              const SizedBox(width: 6),
               Text(
-                "PUSAT BANTUAN",
+                'Atau ketik pertanyaan bebas di bawah',
                 style: TextStyle(
-                  color: emasMajelis,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                "Hubungi Admin",
-                style: TextStyle(
-                  color: cokelatTua,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
+                  color: _cokelatTua.withOpacity(0.35),
+                  fontSize: 12,
                 ),
               ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: latarKrem.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(10),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestionChip(String label) {
+    return GestureDetector(
+      onTap: () {
+        final clean = label.replaceAll(RegExp(r'^[^\w\s]+\s'), '').trim();
+        _controller.text = clean;
+        _send();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _emasMajelis.withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: _cokelatTua.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Icon(Icons.support_agent_rounded, color: cokelatTua, size: 22),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: _cokelatTua,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── MESSAGE BUBBLE ─────────────────────────────────────────────────────
+
+  Widget _buildMessageBubble(ChatMessage msg) {
+    final isUser = msg.isUser;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment:
+            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment:
+                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!isUser) ...[
+                Container(
+                  width: 28,
+                  height: 28,
+                  margin: const EdgeInsets.only(right: 8, bottom: 2),
+                  decoration: BoxDecoration(
+                    color: _emasMajelis.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.auto_awesome_rounded,
+                      size: 14, color: _emasMajelis),
+                ),
+              ],
+              Flexible(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.75,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isUser ? _bubbleUser : _bubbleAI,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(18),
+                      topRight: const Radius.circular(18),
+                      bottomLeft: Radius.circular(isUser ? 18 : 4),
+                      bottomRight: Radius.circular(isUser ? 4 : 18),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _cokelatTua.withOpacity(0.06),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child:
+                      isUser ? _buildUserText(msg) : _buildAIText(msg),
+                ),
+              ),
+            ],
+          ),
+
+          // Tombol WhatsApp jika perlu admin
+          if (!isUser && msg.needAdmin && msg.whatsappUrl != null)
+            _buildWhatsAppButton(msg.whatsappUrl!),
+
+          // Error & retry
+          if (isUser && msg.status == MessageStatus.error)
+            _buildErrorRetry(),
+
+          // Timestamp
+          Padding(
+            padding: EdgeInsets.only(
+              top: 4,
+              left: isUser ? 0 : 40,
+              right: isUser ? 4 : 0,
+            ),
+            child: Text(
+              _formatTime(msg.createdAt),
+              style: TextStyle(
+                color: _cokelatTua.withOpacity(0.3),
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEliteContactTile(BuildContext context, String judul, String sub, IconData ikon, String pesan, Color aksen) {
+  Widget _buildUserText(ChatMessage msg) {
+    return msg.status == MessageStatus.sending
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  msg.content,
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 14, height: 1.4),
+                ),
+              ),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.white.withOpacity(0.7)),
+                ),
+              ),
+            ],
+          )
+        : Text(
+            msg.content,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 14, height: 1.4),
+          );
+  }
+
+  Widget _buildAIText(ChatMessage msg) {
+    return MarkdownBody(
+      data: msg.content,
+      styleSheet: MarkdownStyleSheet(
+        p: TextStyle(color: _cokelatTua, fontSize: 14, height: 1.5),
+        strong: TextStyle(
+            color: _cokelatTua, fontWeight: FontWeight.w800),
+        listBullet: TextStyle(color: _cokelatTua),
+        h1: TextStyle(
+            color: _cokelatTua,
+            fontSize: 16,
+            fontWeight: FontWeight.w900),
+        h2: TextStyle(
+            color: _cokelatTua,
+            fontSize: 15,
+            fontWeight: FontWeight.w800),
+        code: TextStyle(
+          backgroundColor: _emasMajelis.withOpacity(0.08),
+          color: _cokelatTua,
+          fontSize: 12,
+        ),
+      ),
+      shrinkWrap: true,
+    );
+  }
+
+  Widget _buildWhatsAppButton(String url) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 36),
+      child: GestureDetector(
+        onTap: () => _openWhatsApp(url),
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF25D366).withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FaIcon(FontAwesomeIcons.whatsapp,
+                  color: Colors.white, size: 16),
+              SizedBox(width: 6),
+              Text(
+                'Hubungi Admin WhatsApp',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700),
+              ),
+              SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded,
+                  color: Colors.white, size: 14),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorRetry() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, right: 4),
+      child: GestureDetector(
+        onTap: () => context.read<ChatProvider>().retryLast(),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Icon(Icons.refresh_rounded,
+                size: 12, color: Colors.red.withOpacity(0.7)),
+            const SizedBox(width: 4),
+            Text(
+              'Gagal terkirim. Tap untuk coba lagi.',
+              style: TextStyle(
+                  color: Colors.red.withOpacity(0.7), fontSize: 10),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── TYPING INDICATOR ───────────────────────────────────────────────────
+
+  Widget _buildTypingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 36),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomRight: Radius.circular(18),
+                bottomLeft: Radius.circular(4),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _cokelatTua.withOpacity(0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: _TypingDots(color: _emasMajelis),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── INPUT AREA ─────────────────────────────────────────────────────────
+
+  Widget _buildInputArea() {
+    // FIX: Ambil tinggi safe area bawah (home indicator / sistem nav gesture)
+    // agar input bar tidak tertutup di perangkat tanpa tombol fisik.
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    // FIX: Tambahkan padding untuk bottom navigation bar jika digunakan sebagai tab
+    final navBarPadding = widget.hasBottomNavBar ? 88.0 : 0.0;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      // Tambahkan bottomPadding ke padding bawah container + navBarPadding
+      padding: EdgeInsets.fromLTRB(20, 14, 20, 16 + bottomPadding + navBarPadding),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cokelatTua.withOpacity(0.05), width: 1),
+        border:
+            Border(top: BorderSide(color: _cokelatTua.withOpacity(0.05), width: 1)),
         boxShadow: [
           BoxShadow(
-            color: cokelatTua.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          )
+            color: _cokelatTua.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 75,
-                color: aksen.withOpacity(0.05),
-                child: Center(
-                  child: Icon(ikon, color: aksen, size: 26),
-                ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // ── Text field ────────────────────────────────────────────────
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 120),
+              decoration: BoxDecoration(
+                color: _latarKrem,
+                borderRadius: BorderRadius.circular(24),
+                border:
+                    Border.all(color: _cokelatTua.withOpacity(0.08), width: 1),
               ),
-              Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _hubungiAdmin(context, pesan),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            judul,
-                            style: TextStyle(
-                              color: cokelatTua,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 15,
-                              letterSpacing: -0.5,
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                maxLines: null,
+                minLines: 1,
+                textCapitalization: TextCapitalization.sentences,
+                style: TextStyle(color: _cokelatTua, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Ketik pertanyaan Anda...',
+                  hintStyle: TextStyle(
+                    color: _cokelatTua.withOpacity(0.35),
+                    fontSize: 14,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 12),
+                  border: InputBorder.none,
+                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _controller,
+                    builder: (_, val, __) => val.text.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Icon(
+                              Icons.edit_note_rounded,
+                              color: _cokelatTua.withOpacity(0.2),
+                              size: 20,
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            sub,
-                            style: TextStyle(
-                              color: cokelatTua.withOpacity(0.4),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Text(
-                                "HUBUNGI SEKARANG",
-                                style: TextStyle(
-                                  color: aksen,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(Icons.chevron_right_rounded, size: 12, color: aksen),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ),
+                // FIX: Tombol Enter di keyboard langsung kirim pesan
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) {
+                  if (_controller.text.trim().isNotEmpty &&
+                      !context.read<ChatProvider>().isTyping) {
+                    _send();
+                  }
+                },
               ),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(width: 12),
+
+          // ── Tombol kirim ─────────────────────────────────────────────
+          Consumer<ChatProvider>(
+            builder: (_, p, __) => ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _controller,
+              builder: (_, val, __) {
+                final canSend = val.text.trim().isNotEmpty && !p.isTyping;
+                return GestureDetector(
+                  onTap: canSend ? _send : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: canSend
+                          ? _emasMajelis
+                          : _emasMajelis.withOpacity(0.25),
+                      shape: BoxShape.circle,
+                      boxShadow: canSend
+                          ? [
+                              BoxShadow(
+                                color: _emasMajelis.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: p.isTyping
+                        ? const Padding(
+                            padding: EdgeInsets.all(14),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white),
+                            ),
+                          )
+                        : Icon(Icons.send_rounded,
+                            color: Colors.white, size: canSend ? 20 : 18),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFooterInfo() {
-    return Column(
-      children: [
-        Icon(Icons.verified_user_outlined, size: 24, color: cokelatTua.withOpacity(0.1)),
-        const SizedBox(height: 12),
-        Text(
-          "ENKRIPSI END-TO-END",
-          style: TextStyle(
-            color: cokelatTua.withOpacity(0.2),
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
+  // ── DIALOG CLEAR ───────────────────────────────────────────────────────
+
+  void _confirmClear(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        title: Text('Hapus Riwayat Chat',
+            style: TextStyle(
+                color: _cokelatTua, fontWeight: FontWeight.w900)),
+        content: Text(
+          'Semua percakapan akan dihapus. Lanjutkan?',
+          style: TextStyle(color: _cokelatTua.withOpacity(0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Batal',
+                style:
+                    TextStyle(color: _cokelatTua.withOpacity(0.5))),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<ChatProvider>().clearChat();
+            },
+            child: Text('Hapus',
+                style: TextStyle(
+                    color: Colors.red.shade400,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── UTILS ──────────────────────────────────────────────────────────────
+
+  String _formatTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+}
+
+// ── Typing dots animation ─────────────────────────────────────────────────
+
+class _TypingDots extends StatefulWidget {
+  final Color color;
+  const _TypingDots({required this.color});
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with TickerProviderStateMixin {
+  late List<AnimationController> _ctrls;
+  late List<Animation<double>> _anims;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrls = List.generate(
+      3,
+      (i) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 600),
+      ),
+    );
+    _anims = _ctrls
+        .map((c) => Tween<double>(begin: 0, end: 6).animate(
+            CurvedAnimation(parent: c, curve: Curves.easeInOut)))
+        .toList();
+
+    for (var i = 0; i < 3; i++) {
+      Future.delayed(Duration(milliseconds: i * 200), () {
+        if (mounted) _ctrls[i].repeat(reverse: true);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _ctrls) c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      height: 16,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: List.generate(
+          3,
+          (i) => AnimatedBuilder(
+            animation: _anims[i],
+            builder: (_, __) => Transform.translate(
+              offset: Offset(0, -_anims[i].value),
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
           ),
         ),
-        Text(
-          "Layanan resmi Majelis Adventure Support",
-          style: TextStyle(
-            color: cokelatTua.withOpacity(0.2),
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

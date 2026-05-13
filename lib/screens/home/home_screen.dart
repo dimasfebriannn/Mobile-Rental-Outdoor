@@ -347,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     switch (_selectedIndex) {
       case 0:  return _buildCatalogPage();
       case 1:  return const HistoryScreen();
-      case 2:  return const ChatScreen();
+      case 2:  return const ChatScreen(hasBottomNavBar: true);
       case 3:  return const ProfileScreen();
       default: return _buildCatalogPage();
     }

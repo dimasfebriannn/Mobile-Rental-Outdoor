@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import '../../services/barang_service.dart';
+import '../chat/chat_screen.dart';
 import 'package:intl/intl.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -29,14 +30,14 @@ class _DetailScreenState extends State<DetailScreen> {
   bool _isAdding      = false;
   bool _isLoadingFull = false;
 
-  late Product      _product;
+  late Product        _product;
   late PageController _fotoController;
-  int _currentFotoIndex = 0;
+  int  _currentFotoIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _product       = widget.product;
+    _product        = widget.product;
     _fotoController = PageController();
     if (_product.foto.isEmpty) {
       _fetchDetail();
@@ -70,6 +71,20 @@ class _DetailScreenState extends State<DetailScreen> {
       setState(() => _isAdding = false);
       _showSuccessSheet();
     });
+  }
+
+  // ── Buka ChatScreen dengan pertanyaan produk spesifik ─────────────────────
+  void _openChatForProduct() {
+    final message =
+        'Saya ingin bertanya tentang ${_product.name}. Apakah masih tersedia '
+        'dan berapa biaya sewanya?';
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(initialMessage: message),
+      ),
+    );
   }
 
   void _showSuccessSheet() {
@@ -142,6 +157,7 @@ class _DetailScreenState extends State<DetailScreen> {
               ? _buildPlaceholderImage()
               : _buildFotoGallery(fotoList),
         ),
+
         // 2. Scrollable content
         Positioned.fill(
           child: SingleChildScrollView(
@@ -197,20 +213,33 @@ class _DetailScreenState extends State<DetailScreen> {
                             fontWeight: FontWeight.w500),
                       ),
                     ],
+
+                    // ── Tanya via Chat ───────────────────────────────────
+                    const SizedBox(height: 32),
+                    _buildAskChatBanner(),
                   ],
                 ),
               ),
             ]),
           ),
         ),
+
+        // 3. Tombol kembali (kiri atas)
         _buildBackButton(),
+
+        // 4. Tombol chat (kanan atas)
+        _buildChatButton(),
+
+        // 5. Dots indikator foto
         if (fotoList.length > 1) _buildFotoDots(fotoList.length),
+
+        // 6. Bottom bar
         _buildFloatingBottomBar(),
       ]),
     );
   }
 
-  // ── Foto Gallery — dengan ngrok header ────────────────────────────────────
+  // ── Foto Gallery ───────────────────────────────────────────────────────────
   Widget _buildFotoGallery(List<String> fotoList) {
     return PageView.builder(
       controller:    _fotoController,
@@ -218,7 +247,7 @@ class _DetailScreenState extends State<DetailScreen> {
       itemCount:     fotoList.length,
       itemBuilder:   (_, i) => Image.network(
         fotoList[i],
-        headers:  _imageHeaders,        // ← FIX ngrok
+        headers:  _imageHeaders,
         fit:      BoxFit.cover,
         loadingBuilder: (_, child, progress) {
           if (progress == null) return child;
@@ -266,6 +295,106 @@ class _DetailScreenState extends State<DetailScreen> {
     ),
   );
 
+  // ── Tombol Kembali (kiri atas) ─────────────────────────────────────────────
+  Widget _buildBackButton() => Positioned(
+    top: 50, left: 24,
+    child: GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white, shape: BoxShape.circle,
+          boxShadow: [BoxShadow(
+              color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+        ),
+        child: Icon(Icons.arrow_back_ios_new_rounded,
+            color: darkBrown, size: 18),
+      ),
+    ),
+  );
+
+  // ── Tombol Chat (kanan atas) ───────────────────────────────────────────────
+  /// Tombol chat icon di pojok kanan atas foto — tap langsung buka ChatScreen
+  /// dengan pesan otomatis tentang produk ini.
+  Widget _buildChatButton() => Positioned(
+    top: 50, right: 24,
+    child: GestureDetector(
+      onTap: _openChatForProduct,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: darkBrown,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: darkBrown.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.chat_bubble_outline_rounded,
+            color: Colors.white, size: 18),
+      ),
+    ),
+  );
+
+  // ── Banner "Tanya via Chat" di dalam konten ────────────────────────────────
+  Widget _buildAskChatBanner() {
+    return GestureDetector(
+      onTap: _openChatForProduct,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: goldenYellow.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: goldenYellow.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: goldenYellow.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.chat_bubble_outline_rounded,
+                  color: goldenYellow, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ada pertanyaan tentang produk ini?',
+                    style: TextStyle(
+                      color: darkBrown,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tanya langsung ke Asisten Majelis ✨',
+                    style: TextStyle(
+                      color: darkBrown.withOpacity(0.5),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded,
+                color: goldenYellow, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Bottom Bar ─────────────────────────────────────────────────────────────
   Widget _buildFloatingBottomBar() => Positioned(
     bottom: 0, left: 0, right: 0,
@@ -289,27 +418,44 @@ class _DetailScreenState extends State<DetailScreen> {
               style: TextStyle(
                   color: darkBrown, fontWeight: FontWeight.w900, fontSize: 18)),
         ]),
-        const SizedBox(width: 24),
+        const SizedBox(width: 16),
+
+        // Tombol chat kecil di bottom bar
+        GestureDetector(
+          onTap: _openChatForProduct,
+          child: Container(
+            width: 50, height: 50,
+            decoration: BoxDecoration(
+              color: goldenYellow.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: goldenYellow.withOpacity(0.4)),
+            ),
+            child: Icon(Icons.chat_bubble_outline_rounded,
+                color: goldenYellow, size: 22),
+          ),
+        ),
+        const SizedBox(width: 10),
+
         Expanded(child: SizedBox(
-          height: 58,
+          height: 50,
           child: ElevatedButton.icon(
             onPressed: _isAdding ? null : _handleAddToCart,
             icon: _isAdding
                 ? const SizedBox.shrink()
                 : const Icon(Icons.add_shopping_cart_rounded,
-                    color: Colors.white, size: 20),
+                    color: Colors.white, size: 18),
             label: _isAdding
                 ? const SizedBox(width: 20, height: 20,
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2))
-                : const Text('TAMBAH KERANJANG',
+                : const Text('MASUKKAN KERANJANG',
                     style: TextStyle(
                         color: Colors.white, fontWeight: FontWeight.w900,
-                        fontSize: 13, letterSpacing: 0.5)),
+                        fontSize: 12, letterSpacing: 0.5)),
             style: ElevatedButton.styleFrom(
               backgroundColor: darkBrown,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18)),
+                  borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
           ),
@@ -407,22 +553,5 @@ class _DetailScreenState extends State<DetailScreen> {
               color: darkBrown.withOpacity(0.06),
               borderRadius: BorderRadius.circular(4))),
     )),
-  );
-
-  Widget _buildBackButton() => Positioned(
-    top: 50, left: 24,
-    child: GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white, shape: BoxShape.circle,
-          boxShadow: [BoxShadow(
-              color: Colors.black.withOpacity(0.1), blurRadius: 10)],
-        ),
-        child: Icon(Icons.arrow_back_ios_new_rounded,
-            color: darkBrown, size: 18),
-      ),
-    ),
   );
 }

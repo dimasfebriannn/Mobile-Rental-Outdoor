@@ -1,12 +1,13 @@
 ﻿// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'services/api_service.dart';
 import 'screens/splash/splash_screen.dart';
+import 'providers/chat_provider.dart';
 
 // PENTING: file ini dibuat otomatis setelah menjalankan:
 // flutterfire configure
-// (lihat langkah setup di bawah)
 import 'firebase_options.dart';
 
 void main() async {
@@ -28,21 +29,27 @@ class MajelisRentalApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Majelis Adventure',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF3E2723),
-        scaffoldBackgroundColor: const Color(0xFFF5EFE6),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3E2723),
-          primary: const Color(0xFF3E2723),
-          secondary: const Color(0xFFE5A93D),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        // Tambahkan provider lain di sini jika ada
+      ],
+      child: MaterialApp(
+        title: 'Majelis Adventure',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          primaryColor: const Color(0xFF3E2723),
+          scaffoldBackgroundColor: const Color(0xFFF5EFE6),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF3E2723),
+            primary: const Color(0xFF3E2723),
+            secondary: const Color(0xFFE5A93D),
+          ),
+          fontFamily: 'Roboto',
+          useMaterial3: true,
         ),
-        fontFamily: 'Roboto',
-        useMaterial3: true,
+        home: const SplashScreen(),
       ),
-      home: const SplashScreen(),
     );
   }
 }
