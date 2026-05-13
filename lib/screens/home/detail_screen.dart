@@ -1,7 +1,9 @@
 // lib/screens/home/detail_screen.dart
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
+import '../../providers/cart_provider.dart';
 import '../../services/barang_service.dart';
+import 'cart_screen.dart';
 import '../chat/chat_screen.dart';
 import 'package:intl/intl.dart';
 
@@ -18,10 +20,6 @@ class _DetailScreenState extends State<DetailScreen> {
   final Color goldenYellow = const Color(0xFFE5A93D);
   final Color creamBg      = const Color(0xFFF5EFE6);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // FIX: Header ngrok untuk Image.network
-  // Image.network membuat request sendiri (bukan Dio) → ngrok blok tanpa header ini
-  // ═════════════════════════════════════════════════════════════════════════
   static const Map<String, String> _imageHeaders = {
     'ngrok-skip-browser-warning': 'true',
     'User-Agent': 'MajelisApp/1.0',
@@ -34,6 +32,9 @@ class _DetailScreenState extends State<DetailScreen> {
   late PageController _fotoController;
   int  _currentFotoIndex = 0;
 
+  // Ambil CartProvider singleton
+  final _cart = CartProvider.instance;
+
   @override
   void initState() {
     super.initState();
@@ -42,10 +43,17 @@ class _DetailScreenState extends State<DetailScreen> {
     if (_product.foto.isEmpty) {
       _fetchDetail();
     }
+    // Dengarkan perubahan cart untuk rebuild badge
+    _cart.addListener(_onCartChanged);
+  }
+
+  void _onCartChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _cart.removeListener(_onCartChanged);
     _fotoController.dispose();
     super.dispose();
   }
@@ -66,6 +74,10 @@ class _DetailScreenState extends State<DetailScreen> {
 
   void _handleAddToCart() {
     setState(() => _isAdding = true);
+
+    // Tambahkan ke CartProvider
+    _cart.addProduct(_product);
+
     Future.delayed(const Duration(milliseconds: 800), () {
       if (!mounted) return;
       setState(() => _isAdding = false);
@@ -73,7 +85,6 @@ class _DetailScreenState extends State<DetailScreen> {
     });
   }
 
-  // ── Buka ChatScreen dengan pertanyaan produk spesifik ─────────────────────
   void _openChatForProduct() {
     final message =
         'Saya ingin bertanya tentang ${_product.name}. Apakah masih tersedia '
@@ -84,6 +95,13 @@ class _DetailScreenState extends State<DetailScreen> {
       MaterialPageRoute(
         builder: (_) => ChatScreen(initialMessage: message),
       ),
+    );
+  }
+
+  void _openCart() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CartScreen()),
     );
   }
 
@@ -119,21 +137,46 @@ class _DetailScreenState extends State<DetailScreen> {
                 fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity, height: 58,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: darkBrown,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18)),
+          Row(children: [
+            Expanded(
+              child: SizedBox(
+                height: 58,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: darkBrown.withOpacity(0.2)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                  ),
+                  child: Text('LANJUTKAN',
+                      style: TextStyle(
+                          color: darkBrown, fontWeight: FontWeight.w900,
+                          letterSpacing: 1)),
+                ),
               ),
-              child: const Text('LANJUTKAN',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w900,
-                      letterSpacing: 1)),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 58,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _openCart();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: darkBrown,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                  ),
+                  child: const Text('KE KERANJANG',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w900,
+                          letterSpacing: 1)),
+                ),
+              ),
+            ),
+          ]),
         ]),
       ),
     );
@@ -214,7 +257,6 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                     ],
 
-                    // ── Tanya via Chat ───────────────────────────────────
                     const SizedBox(height: 32),
                     _buildAskChatBanner(),
                   ],
@@ -227,8 +269,8 @@ class _DetailScreenState extends State<DetailScreen> {
         // 3. Tombol kembali (kiri atas)
         _buildBackButton(),
 
-        // 4. Tombol chat (kanan atas)
-        _buildChatButton(),
+        // 4. Tombol cart dengan badge (kanan atas)
+        _buildCartButton(),
 
         // 5. Dots indikator foto
         if (fotoList.length > 1) _buildFotoDots(fotoList.length),
@@ -295,7 +337,7 @@ class _DetailScreenState extends State<DetailScreen> {
     ),
   );
 
-  // ── Tombol Kembali (kiri atas) ─────────────────────────────────────────────
+  // ── Tombol Kembali ─────────────────────────────────────────────────────────
   Widget _buildBackButton() => Positioned(
     top: 50, left: 24,
     child: GestureDetector(
@@ -313,33 +355,59 @@ class _DetailScreenState extends State<DetailScreen> {
     ),
   );
 
-  // ── Tombol Chat (kanan atas) ───────────────────────────────────────────────
-  /// Tombol chat icon di pojok kanan atas foto — tap langsung buka ChatScreen
-  /// dengan pesan otomatis tentang produk ini.
-  Widget _buildChatButton() => Positioned(
+  // ── Tombol Cart dengan badge (kanan atas) ──────────────────────────────────
+  Widget _buildCartButton() => Positioned(
     top: 50, right: 24,
     child: GestureDetector(
-      onTap: _openChatForProduct,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: darkBrown,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: darkBrown.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+      onTap: _openCart,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: darkBrown,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: darkBrown.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: const Icon(Icons.chat_bubble_outline_rounded,
-            color: Colors.white, size: 18),
+            child: const Icon(Icons.shopping_cart_outlined,
+                color: Colors.white, size: 18),
+          ),
+          // Badge jumlah item
+          if (_cart.totalItems > 0)
+            Positioned(
+              top: -4, right: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: goldenYellow,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                child: Text(
+                  '${_cart.totalItems}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
       ),
     ),
   );
 
-  // ── Banner "Tanya via Chat" di dalam konten ────────────────────────────────
+  // ── Banner "Tanya via Chat" ────────────────────────────────────────────────
   Widget _buildAskChatBanner() {
     return GestureDetector(
       onTap: _openChatForProduct,
@@ -448,7 +516,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 ? const SizedBox(width: 20, height: 20,
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2))
-                : const Text('MASUKKAN KERANJANG',
+                : const Text('KERANJANG',
                     style: TextStyle(
                         color: Colors.white, fontWeight: FontWeight.w900,
                         fontSize: 12, letterSpacing: 0.5)),

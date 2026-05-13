@@ -1,84 +1,88 @@
+// lib/screens/checkout/checkout_screen.dart
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../providers/cart_provider.dart';
 
 class CheckoutScreen extends StatefulWidget {
+  /// List item dari CartProvider (sudah termasuk qty masing-masing)
+  final List<CartItem> cartItems;
+
+  /// Total harga per hari seluruh item (sudah dikalikan qty)
   final double hargaPerHari;
 
-  const CheckoutScreen({super.key, required this.hargaPerHari});
+  const CheckoutScreen({
+    super.key,
+    required this.cartItems,
+    required this.hargaPerHari,
+  });
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  final Color darkBrown = const Color(0xFF3E2723);
+  final Color darkBrown    = const Color(0xFF3E2723);
   final Color goldenYellow = const Color(0xFFE5A93D);
-  final Color creamBg = const Color(0xFFF5EFE6);
+  final Color creamBg      = const Color(0xFFF5EFE6);
 
-  // State Tanggal dibuat Nullable agar bisa menampilkan MM-DD-YYYY
   DateTime? _tglAmbil;
   DateTime? _tglKembali;
 
-  String _selectedMethod = "midtrans";
-  String _selectedIDType = "KTP";
-  File? _imageFile;
-  bool _isAgreed = false;
-  bool _isLoading = false;
+  String _selectedMethod = 'midtrans';
+  String _selectedIDType = 'KTP';
+  File?  _imageFile;
+  bool   _isAgreed  = false;
+  bool   _isLoading = false;
 
   final ImagePicker _picker = ImagePicker();
 
-  String _formatCurrency(double amount) {
-    return NumberFormat.currency(
-      locale: 'id',
-      symbol: 'Rp ',
-      decimalDigits: 0,
-    ).format(amount);
-  }
+  // ── Format ─────────────────────────────────────────────────────────────────
+  String _formatCurrency(double amount) => NumberFormat.currency(
+    locale: 'id', symbol: 'Rp ', decimalDigits: 0,
+  ).format(amount);
 
-  // --- LOGIC HITUNG DURASI & TOTAL ---
+  // ── Durasi & Total ─────────────────────────────────────────────────────────
   int get _durasi {
     if (_tglAmbil == null || _tglKembali == null) return 0;
-    int diff = _tglKembali!.difference(_tglAmbil!).inDays;
+    final diff = _tglKembali!.difference(_tglAmbil!).inDays;
     return diff > 0 ? diff : 1;
   }
 
+  // Total sewa tanpa biaya layanan
   double get _totalSewa => widget.hargaPerHari * _durasi;
 
-  // --- LOGIC PICK DATE ---
+  // ── Pilih tanggal ──────────────────────────────────────────────────────────
   Future<void> _selectDate(BuildContext context, bool isAmbil) async {
-    final DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: isAmbil
           ? (_tglAmbil ?? DateTime.now())
           : (_tglKembali ??
-                (_tglAmbil?.add(const Duration(days: 1)) ??
-                    DateTime.now().add(const Duration(days: 1)))),
+              (_tglAmbil?.add(const Duration(days: 1)) ??
+                  DateTime.now().add(const Duration(days: 1)))),
       firstDate: isAmbil
           ? DateTime.now()
           : (_tglAmbil?.add(const Duration(days: 1)) ?? DateTime.now()),
       lastDate: DateTime.now().add(const Duration(days: 90)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: darkBrown,
-              onPrimary: Colors.white,
-              onSurface: darkBrown,
-            ),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: darkBrown,
+            onPrimary: Colors.white,
+            onSurface: darkBrown,
           ),
-          child: child!,
-        );
-      },
+        ),
+        child: child!,
+      ),
     );
 
     if (picked != null) {
       setState(() {
         if (isAmbil) {
           _tglAmbil = picked;
-          // Reset tanggal kembali jika tanggal ambil melewati tanggal kembali yang sudah ada
           if (_tglKembali != null &&
               (_tglAmbil!.isAfter(_tglKembali!) ||
                   _tglAmbil!.isAtSameMomentAs(_tglKembali!))) {
@@ -91,31 +95,133 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
+  // ── Pilih gambar (kamera / galeri) ─────────────────────────────────────────
+  Future<void> _pickImage(ImageSource source) async {
     final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 50,
+      source: source,
+      imageQuality: 60,
     );
     if (image != null) {
-      setState(() {
-        _imageFile = File(image.path);
-      });
+      setState(() => _imageFile = File(image.path));
     }
   }
 
+  void _showImageSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: darkBrown.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Text('Unggah Foto Identitas',
+              style: TextStyle(
+                  color: darkBrown, fontSize: 16,
+                  fontWeight: FontWeight.w900)),
+          const SizedBox(height: 6),
+          Text('Pilih sumber gambar untuk jaminan identitas',
+              style: TextStyle(
+                  color: darkBrown.withOpacity(0.4),
+                  fontSize: 12, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 24),
+          _imageSourceOption(
+            icon: Icons.camera_alt_outlined,
+            label: 'Ambil Foto',
+            subtitle: 'Gunakan kamera untuk foto langsung',
+            onTap: () {
+              Navigator.pop(context);
+              _pickImage(ImageSource.camera);
+            },
+          ),
+          const SizedBox(height: 12),
+          _imageSourceOption(
+            icon: Icons.photo_library_outlined,
+            label: 'Pilih dari Galeri',
+            subtitle: 'Ambil dari foto yang sudah tersimpan',
+            onTap: () {
+              Navigator.pop(context);
+              _pickImage(ImageSource.gallery);
+            },
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _imageSourceOption({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: creamBg.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: darkBrown.withOpacity(0.06)),
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: goldenYellow.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: goldenYellow, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        color: darkBrown, fontSize: 14,
+                        fontWeight: FontWeight.w900)),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: darkBrown.withOpacity(0.4),
+                        fontSize: 11, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              color: darkBrown.withOpacity(0.2), size: 20),
+        ]),
+      ),
+    );
+  }
+
+  // ── Payment ─────────────────────────────────────────────────────────────────
   Future<void> _processPayment() async {
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
     setState(() => _isLoading = false);
-    _showPremiumSuccessDialog();
+
+    CartProvider.instance.clear();
+    _showSuccessDialog();
   }
 
-  void _showPremiumSuccessDialog() {
+  void _showSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Dialog(
+      builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.all(28),
@@ -123,78 +229,99 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: goldenYellow.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.verified_rounded,
-                  color: goldenYellow,
-                  size: 50,
-                ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: goldenYellow.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 24),
-              Text(
-                "PESANAN BERHASIL",
+              child: Icon(Icons.verified_rounded,
+                  color: goldenYellow, size: 50),
+            ),
+            const SizedBox(height: 24),
+            Text('PESANAN BERHASIL',
                 style: TextStyle(
-                  color: darkBrown,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                  letterSpacing: 1.5,
-                ),
+                    color: darkBrown, fontWeight: FontWeight.w900,
+                    fontSize: 18, letterSpacing: 1.5)),
+            const SizedBox(height: 8),
+            Text(
+              'TRX-MAJELIS-${DateFormat('yyyyMMdd-HHmm').format(DateTime.now())}',
+              style: TextStyle(
+                  color: goldenYellow, fontSize: 12,
+                  fontWeight: FontWeight.w900, letterSpacing: 1),
+            ),
+            const SizedBox(height: 16),
+            // Ringkasan item yang dipesan
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: creamBg.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(height: 20),
-              Text(
-                "TRX-MAJELIS-${DateFormat('yyyyMMdd').format(DateTime.now())}",
-                style: TextStyle(
-                  color: darkBrown,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: darkBrown,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    elevation: 0,
+              child: Column(
+                children: widget.cartItems.map((item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.product.name,
+                          style: TextStyle(
+                              color: darkBrown.withOpacity(0.7),
+                              fontSize: 12, fontWeight: FontWeight.w700),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '×${item.qty}',
+                        style: TextStyle(
+                            color: goldenYellow,
+                            fontSize: 12, fontWeight: FontWeight.w900),
+                      ),
+                    ],
                   ),
-                  onPressed: () =>
-                      Navigator.of(context).popUntil((route) => route.isFirst),
-                  child: const Text(
-                    "KEMBALI KE BERANDA",
+                )).toList(),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Total: ${_formatCurrency(_totalSewa)}\n'
+              'Durasi: $_durasi hari',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: darkBrown.withOpacity(0.5),
+                  fontSize: 13, fontWeight: FontWeight.w600, height: 1.6),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity, height: 54,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: darkBrown,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15)),
+                  elevation: 0,
+                ),
+                onPressed: () =>
+                    Navigator.of(context).popUntil((r) => r.isFirst),
+                child: const Text('KEMBALI KE BERANDA',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
+                        color: Colors.white, fontWeight: FontWeight.w900,
+                        fontSize: 12, letterSpacing: 1)),
               ),
-            ],
-          ),
+            ),
+          ]),
         ),
       ),
     );
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Tombol aktif jika: Tanggal lengkap, S&K dicentang, Foto ada, & tidak loading
-    bool canSubmit =
-        _tglAmbil != null &&
+    final canSubmit = _tglAmbil != null &&
         _tglKembali != null &&
         _isAgreed &&
         _imageFile != null &&
@@ -202,66 +329,166 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     return Scaffold(
       backgroundColor: creamBg,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -30,
-            left: -30,
-            child: Icon(
-              Icons.payments_rounded,
-              size: 300,
-              color: darkBrown.withOpacity(0.03),
+      body: Stack(children: [
+        Positioned(
+          top: -30, left: -30,
+          child: Icon(Icons.payments_rounded,
+              size: 300, color: darkBrown.withOpacity(0.03)),
+        ),
+        Positioned.fill(
+          child: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(24, 110, 24, 140),
+              child: Column(children: [
+
+                // ── 1. Jadwal sewa (dipindah ke atas) ─────────────────────
+                _buildSectionLabel('PILIH JADWAL SEWA'),
+                _buildInteractiveScheduleCard(),
+                const SizedBox(height: 28),
+
+                // ── 2. Ringkasan item pesanan (dipindah ke bawah jadwal) ──
+                _buildSectionLabel('ITEM PESANAN'),
+                _buildOrderSummaryCard(),
+                const SizedBox(height: 28),
+
+                // ── 3. Jaminan identitas ───────────────────────────────────
+                _buildSectionLabel('JAMINAN IDENTITAS'),
+                _buildIdentitySection(),
+                const SizedBox(height: 28),
+
+                // ── 4. Metode pembayaran ───────────────────────────────────
+                _buildSectionLabel('METODE PEMBAYARAN'),
+                _buildPaymentOption(
+                  'Cashless (Midtrans)',
+                  'Otomatis & Terintegrasi',
+                  'midtrans',
+                  Icons.account_balance_wallet_outlined,
+                ),
+                const SizedBox(height: 10),
+                _buildPaymentOption(
+                  'Tunai (COD)',
+                  'Bayar langsung di basecamp',
+                  'tunai',
+                  Icons.payments_outlined,
+                ),
+                const SizedBox(height: 28),
+
+                // ── 5. Detail biaya (tanpa biaya layanan) ─────────────────
+                _buildSectionLabel('DETAIL BIAYA'),
+                _buildPriceCard(),
+                const SizedBox(height: 24),
+
+                // ── 6. S&K ─────────────────────────────────────────────────
+                _buildSKChecklist(),
+              ]),
             ),
           ),
-          Positioned.fill(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 110, 24, 140),
+        ),
+        _buildGlassTopBar(context),
+        _buildFloatingBottomBar(canSubmit),
+      ]),
+    );
+  }
+
+  // ── Order Summary Card ─────────────────────────────────────────────────────
+  Widget _buildOrderSummaryCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: darkBrown.withOpacity(0.08), width: 1.5),
+      ),
+      child: Column(
+        children: widget.cartItems.map((item) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(children: [
+              // Thumbnail produk — FIXED: Center + loading builder
+              Container(
+                width: 52, height: 52,
+                decoration: BoxDecoration(
+                  color: creamBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: item.product.fotoUtama != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          item.product.fotoUtama!,
+                          headers: const {
+                            'ngrok-skip-browser-warning': 'true',
+                            'User-Agent': 'MajelisApp/1.0',
+                          },
+                          fit: BoxFit.cover,
+                          loadingBuilder: (_, child, progress) {
+                            if (progress == null) return child;
+                            return Center(
+                              child: SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(
+                                  value: progress.expectedTotalBytes != null
+                                      ? progress.cumulativeBytesLoaded /
+                                        progress.expectedTotalBytes!
+                                      : null,
+                                  color: goldenYellow,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: darkBrown.withOpacity(0.2),
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: darkBrown.withOpacity(0.2),
+                          size: 20,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSectionLabel("PILIH JADWAL SEWA"),
-                    _buildInteractiveScheduleCard(),
-
-                    const SizedBox(height: 28),
-                    _buildSectionLabel("JAMINAN IDENTITAS"),
-                    _buildIdentitySection(),
-
-                    const SizedBox(height: 28),
-                    _buildSectionLabel("METODE PEMBAYARAN"),
-                    _buildDensePaymentOption(
-                      "Cashless (Midtrans)",
-                      "Otomatis & Terintegrasi",
-                      "midtrans",
-                      Icons.account_balance_wallet_outlined,
+                    Text(item.product.name,
+                        style: TextStyle(
+                            color: darkBrown, fontSize: 13,
+                            fontWeight: FontWeight.w900),
+                        overflow: TextOverflow.ellipsis),
+                    Text(
+                      '${_formatCurrency(item.product.hargaPerHari)}/hari '
+                      '× ${item.qty} unit',
+                      style: TextStyle(
+                          color: darkBrown.withOpacity(0.4),
+                          fontSize: 11, fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 10),
-                    _buildDensePaymentOption(
-                      "Tunai (COD)",
-                      "Bayar langsung di basecamp",
-                      "tunai",
-                      Icons.payments_outlined,
-                    ),
-
-                    const SizedBox(height: 28),
-                    _buildSectionLabel("DETAIL BIAYA"),
-                    _buildDensePriceCard(),
-
-                    const SizedBox(height: 24),
-                    _buildSKChecklist(),
                   ],
                 ),
               ),
-            ),
-          ),
-          _buildGlassTopBar(context),
-          _buildFloatingBottomBar(canSubmit),
-        ],
+              Text(
+                _formatCurrency(item.product.hargaPerHari * item.qty),
+                style: TextStyle(
+                    color: darkBrown, fontSize: 13,
+                    fontWeight: FontWeight.w900),
+              ),
+            ]),
+          );
+        }).toList(),
       ),
     );
   }
 
-  // --- REVISI: INTERACTIVE CARD DENGAN DEFAULT MM-DD-YYYY ---
+  // ── Schedule Card ──────────────────────────────────────────────────────────
   Widget _buildInteractiveScheduleCard() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -273,13 +500,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _interactiveDateItem("AMBIL", _tglAmbil, true),
-          Icon(
-            Icons.arrow_forward_ios_rounded,
-            color: darkBrown.withOpacity(0.1),
-            size: 14,
-          ),
-          _interactiveDateItem("KEMBALI", _tglKembali, false),
+          _interactiveDateItem('AMBIL', _tglAmbil, true),
+          Icon(Icons.arrow_forward_ios_rounded,
+              color: darkBrown.withOpacity(0.1), size: 14),
+          _interactiveDateItem('KEMBALI', _tglKembali, false),
         ],
       ),
     );
@@ -292,42 +516,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: goldenYellow,
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-            ),
-          ),
+          Text(label,
+              style: TextStyle(
+                  color: goldenYellow, fontSize: 9,
+                  fontWeight: FontWeight.w900, letterSpacing: 1.5)),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              // Jika date null, tampilkan placeholder MM-DD-YYYY
-              Text(
-                date != null
-                    ? DateFormat('dd MMM yyyy').format(date).toUpperCase()
-                    : "MM-DD-YYYY",
-                style: TextStyle(
-                  color: date != null ? darkBrown : darkBrown.withOpacity(0.2),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.calendar_month_outlined,
+          Row(children: [
+            Text(
+              date != null
+                  ? DateFormat('dd MMM yyyy').format(date).toUpperCase()
+                  : 'MM-DD-YYYY',
+              style: TextStyle(
+                  color: date != null
+                      ? darkBrown
+                      : darkBrown.withOpacity(0.2),
+                  fontSize: 14, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.calendar_month_outlined,
                 size: 14,
-                color: date != null ? goldenYellow : darkBrown.withOpacity(0.1),
-              ),
-            ],
-          ),
+                color: date != null
+                    ? goldenYellow
+                    : darkBrown.withOpacity(0.1)),
+          ]),
         ],
       ),
     );
   }
 
+  // ── Identity Section ───────────────────────────────────────────────────────
   Widget _buildIdentitySection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -336,73 +553,110 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: darkBrown.withOpacity(0.08), width: 1.5),
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _idTypeChip("KTP"),
-              const SizedBox(width: 8),
-              _idTypeChip("SIM"),
-              const SizedBox(width: 8),
-              _idTypeChip("PELAJAR"),
-            ],
-          ),
-          const SizedBox(height: 16),
-          InkWell(
-            onTap: _pickImage,
-            child: Container(
-              width: double.infinity,
-              height: _imageFile != null ? 180 : 80,
-              decoration: BoxDecoration(
-                color: creamBg.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: darkBrown.withOpacity(0.05)),
-                image: _imageFile != null
-                    ? DecorationImage(
-                        image: FileImage(_imageFile!),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
+      child: Column(children: [
+        Row(children: [
+          _idTypeChip('KTP'),
+          const SizedBox(width: 8),
+          _idTypeChip('SIM'),
+          const SizedBox(width: 8),
+          _idTypeChip('PELAJAR'),
+        ]),
+        const SizedBox(height: 16),
+
+        GestureDetector(
+          onTap: _showImageSourceSheet,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: double.infinity,
+            height: _imageFile != null ? 200 : 90,
+            decoration: BoxDecoration(
+              color: creamBg.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _imageFile != null
+                    ? goldenYellow.withOpacity(0.4)
+                    : darkBrown.withOpacity(0.05),
+                width: _imageFile != null ? 1.5 : 1,
               ),
-              child: _imageFile == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.camera_enhance_outlined,
-                          color: goldenYellow,
-                          size: 24,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "UNGGAH FOTO IDENTITAS",
-                          style: TextStyle(
-                            color: darkBrown,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
+              image: _imageFile != null
+                  ? DecorationImage(
+                      image: FileImage(_imageFile!),
+                      fit: BoxFit.cover,
                     )
-                  : Container(
-                      alignment: Alignment.bottomRight,
-                      padding: const EdgeInsets.all(8),
-                      child: CircleAvatar(
-                        backgroundColor: Colors.white,
-                        radius: 15,
-                        child: Icon(Icons.refresh, size: 18, color: darkBrown),
+                  : null,
+            ),
+            child: _imageFile == null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.camera_alt_outlined,
+                              color: goldenYellow, size: 22),
+                          const SizedBox(width: 8),
+                          Container(
+                              width: 1, height: 20,
+                              color: darkBrown.withOpacity(0.1)),
+                          const SizedBox(width: 8),
+                          Icon(Icons.photo_library_outlined,
+                              color: goldenYellow, size: 22),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('FOTO / UNGGAH IDENTITAS',
+                          style: TextStyle(
+                              color: darkBrown, fontSize: 10,
+                              fontWeight: FontWeight.w900, letterSpacing: 1)),
+                      const SizedBox(height: 2),
+                      Text('Ketuk untuk memilih sumber foto',
+                          style: TextStyle(
+                              color: darkBrown.withOpacity(0.3),
+                              fontSize: 10, fontWeight: FontWeight.w500)),
+                    ],
+                  )
+                : Align(
+                    alignment: Alignment.bottomRight,
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.refresh_rounded,
+                              color: Colors.white, size: 14),
+                          const SizedBox(width: 4),
+                          const Text('Ganti',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11, fontWeight: FontWeight.w700)),
+                        ]),
                       ),
                     ),
-            ),
+                  ),
+          ),
+        ),
+
+        if (_imageFile == null) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Format: JPG / PNG · Pastikan foto jelas & terbaca',
+            style: TextStyle(
+                color: darkBrown.withOpacity(0.3),
+                fontSize: 10, fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center,
           ),
         ],
-      ),
+      ]),
     );
   }
 
   Widget _idTypeChip(String type) {
-    bool isSelected = _selectedIDType == type;
+    final isSelected = _selectedIDType == type;
     return GestureDetector(
       onTap: () => setState(() => _selectedIDType = type),
       child: Container(
@@ -411,164 +665,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           color: isSelected ? darkBrown : creamBg.withOpacity(0.3),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Text(
-          type,
-          style: TextStyle(
-            color: isSelected ? Colors.white : darkBrown.withOpacity(0.4),
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
+        child: Text(type,
+            style: TextStyle(
+                color: isSelected
+                    ? Colors.white
+                    : darkBrown.withOpacity(0.4),
+                fontSize: 11, fontWeight: FontWeight.w900)),
       ),
     );
   }
 
-  Widget _buildDensePriceCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: darkBrown.withOpacity(0.08), width: 1.5),
-      ),
-      child: Column(
-        children: [
-          _priceRow("Subtotal (${_durasi} Hari)", _totalSewa),
-          const SizedBox(height: 10),
-          _priceRow("Biaya Layanan", 2000),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, thickness: 1),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "TOTAL BAYAR",
-                style: TextStyle(
-                  color: darkBrown.withOpacity(0.3),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 10,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              Text(
-                _formatCurrency(_totalSewa + 2000),
-                style: TextStyle(
-                  color: darkBrown,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _priceRow(String label, double price) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: darkBrown.withOpacity(0.4),
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-        ),
-        Text(
-          _formatCurrency(price),
-          style: TextStyle(
-            color: darkBrown,
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGlassTopBar(BuildContext context) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(24, 50, 24, 15),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.85),
-              border: Border(
-                bottom: BorderSide(
-                  color: darkBrown.withOpacity(0.05),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: darkBrown.withOpacity(0.1)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: darkBrown,
-                      size: 18,
-                    ),
-                  ),
-                ),
-                Text(
-                  "CHECKOUT",
-                  style: TextStyle(
-                    color: darkBrown,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    letterSpacing: 2.5,
-                  ),
-                ),
-                const SizedBox(width: 40),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionLabel(String label) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(left: 4, bottom: 12),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: darkBrown.withOpacity(0.3),
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 2.0,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDensePaymentOption(
-    String title,
-    String subtitle,
-    String value,
-    IconData icon,
-  ) {
-    bool isSelected = _selectedMethod == value;
+  // ── Payment Option ─────────────────────────────────────────────────────────
+  Widget _buildPaymentOption(
+      String title, String subtitle, String value, IconData icon) {
+    final isSelected = _selectedMethod == value;
     return GestureDetector(
       onTap: () => setState(() => _selectedMethod = value),
       child: AnimatedContainer(
@@ -582,67 +692,161 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             width: 1.5,
           ),
         ),
-        child: Row(
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isSelected ? goldenYellow.withOpacity(0.1) : creamBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon,
+                color: isSelected ? goldenYellow : darkBrown, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        color: darkBrown, fontWeight: FontWeight.w900,
+                        fontSize: 14, letterSpacing: -0.3)),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: darkBrown.withOpacity(0.4),
+                        fontSize: 11, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          if (isSelected)
+            Icon(Icons.check_circle_rounded, color: goldenYellow, size: 20),
+        ]),
+      ),
+    );
+  }
+
+  // ── Price Card — TANPA Biaya Layanan ───────────────────────────────────────
+  Widget _buildPriceCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: darkBrown.withOpacity(0.08), width: 1.5),
+      ),
+      child: Column(children: [
+        _priceRow(
+          _durasi > 0
+              ? 'Subtotal ($_durasi hari)'
+              : 'Subtotal',
+          _totalSewa,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Divider(
+              height: 1, thickness: 1,
+              color: darkBrown.withOpacity(0.05)),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isSelected ? goldenYellow.withOpacity(0.1) : creamBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? goldenYellow : darkBrown,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: darkBrown,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: darkBrown.withOpacity(0.4),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle_rounded, color: goldenYellow, size: 20),
+            Text('TOTAL BAYAR',
+                style: TextStyle(
+                    color: darkBrown.withOpacity(0.3),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10, letterSpacing: 1.5)),
+            Text(_formatCurrency(_totalSewa),
+                style: TextStyle(
+                    color: darkBrown, fontWeight: FontWeight.w900,
+                    fontSize: 18)),
           ],
+        ),
+      ]),
+    );
+  }
+
+  Widget _priceRow(String label, double price) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(label,
+          style: TextStyle(
+              color: darkBrown.withOpacity(0.4),
+              fontWeight: FontWeight.w700, fontSize: 13)),
+      Text(_formatCurrency(price),
+          style: TextStyle(
+              color: darkBrown, fontWeight: FontWeight.w800, fontSize: 13)),
+    ],
+  );
+
+  // ── Glass Top Bar ──────────────────────────────────────────────────────────
+  Widget _buildGlassTopBar(BuildContext context) {
+    return Positioned(
+      top: 0, left: 0, right: 0,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 50, 24, 15),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.85),
+              border: Border(
+                bottom: BorderSide(
+                    color: darkBrown.withOpacity(0.05), width: 1),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: darkBrown.withOpacity(0.1)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
+                        color: darkBrown, size: 18),
+                  ),
+                ),
+                Text('CHECKOUT',
+                    style: TextStyle(
+                        color: darkBrown, fontWeight: FontWeight.w900,
+                        fontSize: 13, letterSpacing: 2.5)),
+                const SizedBox(width: 40),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
+  // ── Section Label ──────────────────────────────────────────────────────────
+  Widget _buildSectionLabel(String label) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(label,
+          style: TextStyle(
+              color: darkBrown.withOpacity(0.3), fontSize: 11,
+              fontWeight: FontWeight.w900, letterSpacing: 2.0)),
+    );
+  }
+
+  // ── S&K Checklist ──────────────────────────────────────────────────────────
   Widget _buildSKChecklist() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 24,
-          width: 24,
+          height: 24, width: 24,
           child: Checkbox(
             value: _isAgreed,
             activeColor: darkBrown,
             checkColor: goldenYellow,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(5),
-            ),
+                borderRadius: BorderRadius.circular(5)),
             side: BorderSide(color: darkBrown.withOpacity(0.1), width: 1.5),
             onChanged: (val) => setState(() => _isAgreed = val!),
           ),
@@ -650,72 +854,57 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            "Saya menyetujui Syarat & Ketentuan penyewaan alat di Majelis Adventure, termasuk tanggung jawab atas kerusakan atau keterlambatan.",
+            'Saya menyetujui Syarat & Ketentuan penyewaan alat di Majelis '
+            'Adventure, termasuk tanggung jawab atas kerusakan atau '
+            'keterlambatan.',
             style: TextStyle(
-              color: darkBrown.withOpacity(0.5),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-            ),
+                color: darkBrown.withOpacity(0.5),
+                fontSize: 11, fontWeight: FontWeight.w600, height: 1.5),
           ),
         ),
       ],
     );
   }
 
+  // ── Floating Bottom Bar ────────────────────────────────────────────────────
   Widget _buildFloatingBottomBar(bool canSubmit) {
     return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
+      bottom: 0, left: 0, right: 0,
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 35),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
-          boxShadow: [
-            BoxShadow(
+          boxShadow: [BoxShadow(
               color: darkBrown.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
+              blurRadius: 20, offset: const Offset(0, -5))],
         ),
         child: SizedBox(
-          width: double.infinity,
-          height: 56,
+          width: double.infinity, height: 56,
           child: ElevatedButton(
             onPressed: canSubmit ? _processPayment : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: darkBrown,
               disabledBackgroundColor: darkBrown.withOpacity(0.1),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+                  borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
             child: _isLoading
                 ? const SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 20, height: 20,
                     child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
+                        color: Colors.white, strokeWidth: 2))
                 : Text(
-                    _selectedMethod == "tunai"
-                        ? "KONFIRMASI PESANAN"
-                        : "PROSES PEMBAYARAN",
+                    _selectedMethod == 'tunai'
+                        ? 'KONFIRMASI PESANAN'
+                        : 'PROSES PEMBAYARAN',
                     style: TextStyle(
-                      color: canSubmit
-                          ? Colors.white
-                          : darkBrown.withOpacity(0.3),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                      letterSpacing: 2,
-                    ),
-                  ),
+                        color: canSubmit
+                            ? Colors.white
+                            : darkBrown.withOpacity(0.3),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12, letterSpacing: 2)),
           ),
         ),
       ),
