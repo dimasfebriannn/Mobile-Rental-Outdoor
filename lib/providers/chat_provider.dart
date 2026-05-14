@@ -2,7 +2,9 @@
 
 import 'package:flutter/material.dart';
 import '../models/chat_message.dart';
+import '../models/product.dart';
 import '../services/chat_service.dart';
+
 
 enum ChatLoadState { idle, loading, error }
 
@@ -37,10 +39,22 @@ class ChatProvider extends ChangeNotifier {
   // ── Kirim pesan ──────────────────────────────────────────────────────────
 
   Future<void> sendMessage(String text) async {
+    await _sendInternal(text, product: null);
+  }
+
+  /// Kirim pesan pertama dengan produk terlampir (dari halaman detail → Shopee style).
+  Future<void> sendMessageWithProduct(String text, {Product? product}) async {
+    await _sendInternal(text, product: product);
+  }
+
+  Future<void> _sendInternal(String text, {Product? product}) async {
     if (text.trim().isEmpty || _isTyping) return;
 
-    // Tambah pesan user ke UI langsung
-    final userMsg = ChatMessage.fromUser(text.trim());
+    // Buat pesan user (dengan atau tanpa product card)
+    final userMsg = product != null
+        ? ChatMessage.withProduct(text: text.trim(), product: product)
+        : ChatMessage.fromUser(text.trim());
+
     _messages.add(userMsg);
     _isTyping = true;
     _errorMsg = null;
@@ -50,6 +64,7 @@ class ChatProvider extends ChangeNotifier {
       final response = await _service.sendMessage(
         message: text.trim(),
         history: _messages,
+        attachedProductId: userMsg.attachedProduct?.id,
       );
 
       // Update pesan user menjadi 'sent'
@@ -80,6 +95,7 @@ class ChatProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
 
   // ── Hapus riwayat ────────────────────────────────────────────────────────
 

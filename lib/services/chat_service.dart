@@ -65,6 +65,7 @@ class ChatService {
   Future<ChatApiResponse> sendMessage({
     required String message,
     required List<ChatMessage> history,
+    int? attachedProductId,
   }) async {
     final sessionId = await getSessionId();
 
@@ -84,6 +85,7 @@ class ChatService {
         'message':    message,
         'session_id': sessionId,
         'history':    historyJson,
+        if (attachedProductId != null) 'attached_product_id': attachedProductId,
       },
     );
 

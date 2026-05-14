@@ -87,13 +87,16 @@ class _DetailScreenState extends State<DetailScreen> {
 
   void _openChatForProduct() {
     final message =
-        'Saya ingin bertanya tentang ${_product.name}. Apakah masih tersedia '
-        'dan berapa biaya sewanya?';
+        'Saya ingin bertanya tentang ${_product.name}. '
+        'Apakah masih tersedia dan berapa biaya sewanya?';
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ChatScreen(initialMessage: message),
+        builder: (_) => ChatScreen(
+          initialMessage: message,
+          attachedProduct: _product,
+        ),
       ),
     );
   }

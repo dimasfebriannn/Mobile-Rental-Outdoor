@@ -44,7 +44,7 @@
     // ── Ganti base URL lokal (127.0.0.1 / localhost) → base URL aktif ─────────
     // Ini mengatasi kasus API masih return http://127.0.0.1:8000/storage/...
     // padahal device harus akses lewat ngrok / produksi.
-    static String _fixImageUrl(String? raw) {
+    static String fixImageUrl(String? raw) {
       if (raw == null || raw.isEmpty) return '';
 
       // Base URL tanpa "/api" → misal https://xxx.ngrok-free.app
@@ -61,11 +61,11 @@
       return Product(
         id:            json['id'] as int,
         name:          json['nama'] as String,
-        hargaPerHari:  (json['harga_per_hari'] as num).toDouble(),
+        hargaPerHari:  double.tryParse(json['harga_per_hari']?.toString() ?? '0') ?? 0.0,
         category:      json['kategori'] as String,
-        fotoUtama:     _fixImageUrl(json['foto_utama'] as String?),
+        fotoUtama:     Product.fixImageUrl(json['foto_utama'] as String?),
         foto:          (json['foto'] as List<dynamic>?)
-                          ?.map((e) => _fixImageUrl(e.toString()))
+                          ?.map((e) => Product.fixImageUrl(e.toString()))
                           .toList() ?? [],
         rating:        json['rating']?.toString() ?? '4.8',
         stok:          json['stok'] as int? ?? 0,

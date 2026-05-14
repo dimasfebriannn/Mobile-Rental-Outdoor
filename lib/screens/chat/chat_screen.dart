@@ -5,21 +5,26 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/chat_message.dart';
+import '../../models/product.dart';
 import '../../providers/chat_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:intl/intl.dart';
+import '../home/detail_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   /// Jika diberikan, pesan ini akan langsung dikirim saat layar terbuka.
-  /// Berguna ketika pengguna tap ikon chat dari halaman detail produk.
   final String? initialMessage;
 
+  /// Produk yang dilampirkan (dari halaman detail) — tampil sebagai product card ala Shopee.
+  final Product? attachedProduct;
+
   /// Jika true, menambahkan padding bawah untuk bottom navigation bar.
-  /// Gunakan ini ketika ChatScreen digunakan sebagai tab dalam bottom nav.
   final bool hasBottomNavBar;
 
   const ChatScreen({
     super.key,
     this.initialMessage,
+    this.attachedProduct,
     this.hasBottomNavBar = false,
   });
 
@@ -42,11 +47,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Prompt chip suggestions
   final List<String> _suggestions = [
     '🏕️ Cara menyewa alat',
-    '💰 Berapa harga sewa?',
+    '💰 Harga sewa barang',
+    '📊 Status transaksi',
+    '🌤️ Rekomendasi cuaca',
     '📋 Syarat & ketentuan',
-    '⏰ Jam operasional',
-    '⚡ Apa itu denda?',
-    '🎒 Rekomendasi untuk pendakian',
+    '⚡ Aturan denda',
+    '🔔 Info notifikasi',
+    '📍 Lokasi & kontak',
   ];
 
   @override
@@ -59,7 +66,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Jika ada initialMessage (dari halaman detail produk), kirim otomatis
       if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
         _controller.text = widget.initialMessage!;
-        await _send();
+        await _sendWithProduct();
       }
     });
   }
@@ -95,6 +102,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _controller.clear();
     _focusNode.unfocus();
     await context.read<ChatProvider>().sendMessage(text);
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+  }
+
+  /// Kirim pesan pertama dengan produk terlampir (dari halaman detail).
+  Future<void> _sendWithProduct() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    _controller.clear();
+    _focusNode.unfocus();
+    await context.read<ChatProvider>().sendMessageWithProduct(
+      text,
+      product: widget.attachedProduct,
+    );
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
@@ -385,6 +405,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
+          // ── Product card bubble (Shopee style) — tampil di atas bubble user
+          if (isUser && msg.attachedProduct != null)
+            _buildProductCard(msg.attachedProduct!),
+
           Row(
             mainAxisAlignment: isUser
                 ? MainAxisAlignment.end
@@ -462,6 +486,188 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── PRODUCT CARD BUBBLE (Shopee style) ────────────────────────────────────
+
+  Widget _buildProductCard(Product product) {
+    final harga = NumberFormat.currency(
+      locale: 'id', symbol: 'Rp ', decimalDigits: 0,
+    ).format(product.hargaPerHari);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DetailScreen(product: product),
+              ),
+            );
+          },
+          child: Container(
+  width: MediaQuery.of(context).size.width * 0.72,
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(
+      color: _emasMajelis.withOpacity(0.3),
+      width: 1.5,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: _cokelatTua.withOpacity(0.07),
+        blurRadius: 10,
+        offset: const Offset(0, 3),
+      ),
+    ],
+  ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+              // Label header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: _emasMajelis.withOpacity(0.1),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.storefront_rounded, size: 12, color: _emasMajelis),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Majelis Rental',
+                      style: TextStyle(
+                        color: _emasMajelis,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Foto + Info
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Foto produk
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: product.fotoUtama != null && product.fotoUtama!.isNotEmpty
+                          ? Image.network(
+                              product.fotoUtama!,
+                              width: 72,
+                              height: 72,
+                              fit: BoxFit.cover,
+                              headers: const {
+                                'ngrok-skip-browser-warning': 'true',
+                                'User-Agent': 'MajelisApp/1.0',
+                              },
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 72,
+                                height: 72,
+                                color: _latarKrem,
+                                child: Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: _cokelatTua.withOpacity(0.2),
+                                  size: 28,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: _latarKrem,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.backpack_outlined,
+                                color: _emasMajelis.withOpacity(0.5),
+                                size: 28,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // Nama, kategori, harga
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product.category.toUpperCase(),
+                            style: TextStyle(
+                              color: _emasMajelis,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            product.name,
+                            style: TextStyle(
+                              color: _cokelatTua,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _emasMajelis,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '$harga/hari',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              if (product.stok > 0)
+                                Text(
+                                  'Stok: ${product.stok}',
+                                  style: TextStyle(
+                                    color: Colors.green.shade600,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
       ),
     );
   }
