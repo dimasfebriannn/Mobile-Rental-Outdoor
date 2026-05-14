@@ -5,6 +5,7 @@ import '../../widgets/custom_textfield.dart';
 import '../../services/auth_service.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -99,8 +100,11 @@ class _LoginScreenState extends State<LoginScreen>
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline_rounded,
-                color: Colors.white, size: 20),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
             const SizedBox(width: 10),
             Expanded(child: Text(message)),
           ],
@@ -114,10 +118,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   /// Snackbar amber — untuk peringatan metode login yang salah
-  void _showProviderWarning({
-    required String message,
-    required IconData icon,
-  }) {
+  void _showProviderWarning({required String message, required IconData icon}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -171,8 +172,9 @@ class _LoginScreenState extends State<LoginScreen>
               TextField(
                 controller: confirmController,
                 obscureText: true,
-                decoration:
-                    const InputDecoration(labelText: 'Konfirmasi Password'),
+                decoration: const InputDecoration(
+                  labelText: 'Konfirmasi Password',
+                ),
               ),
             ],
           ),
@@ -251,7 +253,8 @@ class _LoginScreenState extends State<LoginScreen>
     // Akun ini terdaftar via Google → tampilkan peringatan khusus
     if (result.authProvider == 'google') {
       _showProviderWarning(
-        message: 'Akun ini terdaftar via Google. Gunakan tombol "Google Account" untuk login.',
+        message:
+            'Akun ini terdaftar via Google. Gunakan tombol "Google Account" untuk login.',
         icon: Icons.g_mobiledata_rounded,
       );
       return;
@@ -283,7 +286,8 @@ class _LoginScreenState extends State<LoginScreen>
     // Akun ini terdaftar via email → tampilkan peringatan khusus
     if (result.authProvider == 'email') {
       _showProviderWarning(
-        message: 'Akun ini terdaftar via email. Gunakan email & kata sandi untuk login.',
+        message:
+            'Akun ini terdaftar via email. Gunakan email & kata sandi untuk login.',
         icon: Icons.email_outlined,
       );
       return;
@@ -497,7 +501,13 @@ class _LoginScreenState extends State<LoginScreen>
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () {
-                              // TODO: implement forgot password
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ForgotPasswordScreen(),
+                                ),
+                              );
                             },
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
@@ -554,10 +564,13 @@ class _LoginScreenState extends State<LoginScreen>
 
                         Row(
                           children: [
-                            Expanded(child: Divider(color: Colors.grey.shade200)),
+                            Expanded(
+                              child: Divider(color: Colors.grey.shade200),
+                            ),
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               child: Text(
                                 'ATAU',
                                 style: TextStyle(
@@ -568,7 +581,9 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                             ),
-                            Expanded(child: Divider(color: Colors.grey.shade200)),
+                            Expanded(
+                              child: Divider(color: Colors.grey.shade200),
+                            ),
                           ],
                         ),
 
@@ -579,8 +594,9 @@ class _LoginScreenState extends State<LoginScreen>
                           width: double.infinity,
                           height: 52,
                           child: OutlinedButton(
-                            onPressed:
-                                _isGoogleLoading ? null : _handleGoogleLogin,
+                            onPressed: _isGoogleLoading
+                                ? null
+                                : _handleGoogleLogin,
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: Colors.grey.shade300),
                               shape: RoundedRectangleBorder(
