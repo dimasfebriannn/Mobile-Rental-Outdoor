@@ -6,11 +6,11 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/checkout_service.dart';
+import '../../models/weather_recommendation.dart';
+import '../../models/product.dart';
+import '../checkout/weather_recommendation_section.dart';
 
 class CheckoutScreen extends StatefulWidget {
-  // Parameter ini tetap ada untuk backward-compat dengan cart_screen,
-  // tapi tampilan & kalkulasi sekarang menggunakan CartProvider.instance
-  // supaya perubahan qty di sini langsung tersinkron.
   const CheckoutScreen({
     super.key,
     // ignore: unused_element
@@ -40,8 +40,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   File? _imageFile;
   bool _isAgreed = false;
   bool _isLoading = false;
-  bool _isCheckingIdentity = false;
   HasilValidasiIdentitas? _hasilValidasi;
+
+  // ── Identity validation ────────────────────────────────────────────────────
+  String? _identityValidationMessage;
+  bool _isValidatingIdentity = false;
+  bool _isIdentityValid = false;
+
+  // ── Lokasi tujuan (untuk fitur cuaca) ─────────────────────────────────────
+  LokasiPilihan? _lokasiTujuan;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -119,7 +126,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  // ── Pilih gambar ───────────────────────────────────────────────────────────
+  // ── Pilih gambar identitas ─────────────────────────────────────────────────
   Future<void> _pickImage(ImageSource source) async {
     final XFile? image = await _picker.pickImage(
       source: source,
@@ -127,17 +134,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       maxWidth: 2000,
     );
     if (image != null) {
-      setState(() {
-        _imageFile = File(image.path);
-      });
-
+      setState(() => _imageFile = File(image.path));
       await _validateIdentityWithAI();
     }
   }
-
-  String? _identityValidationMessage;
-  bool _isValidatingIdentity = false;
-  bool _isIdentityValid = false;
 
   Future<void> _validateIdentityWithAI() async {
     if (_imageFile == null) return;
@@ -152,23 +152,63 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         foto: _imageFile!,
         jenisIdentitas: _selectedIDType,
       );
-
       setState(() {
         _isIdentityValid = result.valid;
         _identityValidationMessage = result.pesan;
       });
-    } catch (e) {
+    } catch (_) {
       setState(() {
         _isIdentityValid = false;
         _identityValidationMessage = 'Terjadi kesalahan validasi';
       });
     } finally {
-      setState(() {
-        _isValidatingIdentity = false;
-      });
+      setState(() => _isValidatingIdentity = false);
     }
   }
 
+  // ── Tambah barang dari rekomendasi cuaca ke keranjang ─────────────────────
+  void _onTambahDariRekomendasi(WeatherBarang barang) {
+    final product = Product(
+      id: barang.id,
+      name: barang.nama,
+      hargaPerHari: barang.harga,
+      category: barang.kategori,
+      fotoUtama: barang.foto,
+      stok: barang.stok,
+    );
+
+    // Cek apakah sudah ada di cart
+    final existingIndex = _cart.items.indexWhere(
+      (i) => i.product.id == product.id,
+    );
+    if (existingIndex >= 0) {
+      _cart.increment(existingIndex);
+    } else {
+      _cart.addProduct(product);
+    }
+
+    setState(() {});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${barang.nama} ditambahkan ke keranjang',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+        backgroundColor: darkBrown,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // ── Image source bottom-sheet ──────────────────────────────────────────────
   void _showImageSourceSheet() {
     showModalBottomSheet(
       context: context,
@@ -294,7 +334,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  // ── Delete confirm bottom-sheet (sama seperti di cart_screen) ──────────────
+  // ── Delete confirm ─────────────────────────────────────────────────────────
   void _showDeleteConfirm(int index, String name) {
     showModalBottomSheet(
       context: context,
@@ -373,10 +413,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       onPressed: () {
                         Navigator.pop(context);
                         _cart.remove(index);
-                        // Jika cart kosong setelah hapus, kembali ke cart screen
-                        if (_cart.items.isEmpty && mounted) {
+                        if (_cart.items.isEmpty && mounted)
                           Navigator.pop(context);
-                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade400,
@@ -403,7 +441,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  // ── QtyCounter (sama persis dengan cart_screen) ────────────────────────────
+  // ── Qty Counter ────────────────────────────────────────────────────────────
   Widget _buildQtyCounter(int index) {
     final qty = _cart.items[index].qty;
     return Container(
@@ -452,14 +490,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  // ── Payment ─────────────────────────────────────────────────────────────────
+  // ── Payment ────────────────────────────────────────────────────────────────
   Future<void> _processPayment() async {
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    final snapshot = _cart.items.toList(); // snapshot sebelum clear
+    final snapshot = _cart.items.toList();
     _cart.clear();
     _showSuccessDialog(snapshot);
   }
@@ -512,7 +550,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Ringkasan item yang dipesan
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -596,7 +633,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final canSubmit =
@@ -613,6 +650,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       backgroundColor: creamBg,
       body: Stack(
         children: [
+          // Decorative background icon
           Positioned(
             top: -30,
             left: -30,
@@ -622,6 +660,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               color: darkBrown.withOpacity(0.03),
             ),
           ),
+
+          // ── Scrollable body ──────────────────────────────────────────────
           Positioned.fill(
             child: SafeArea(
               child: SingleChildScrollView(
@@ -629,24 +669,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 110, 24, 140),
                 child: Column(
                   children: [
-                    // ── 1. Jadwal sewa ─────────────────────────────────────────
+                    // ── 1. Jadwal sewa ───────────────────────────────────────
                     _buildSectionLabel('PILIH JADWAL SEWA'),
                     _buildInteractiveScheduleCard(),
                     const SizedBox(height: 28),
 
-                    // ── 2. Ringkasan item (dengan qty controls) ────────────────
+                    // ── 2. Lokasi & Rekomendasi Cuaca ────────────────────────
+                    WeatherRecommendationSection(
+                      tanggalAmbil: _tglAmbil,
+                      onTambahKeranjang: _onTambahDariRekomendasi,
+                    ),
+                    const SizedBox(height: 28),
+
+                    // ── 3. Item pesanan ──────────────────────────────────────
                     _buildSectionLabel(
                       'ITEM PESANAN  •  ${_cart.totalItems} unit',
                     ),
                     _buildOrderSummaryCard(),
                     const SizedBox(height: 28),
 
-                    // ── 3. Jaminan identitas ───────────────────────────────────
+                    // ── 4. Jaminan identitas ─────────────────────────────────
                     _buildSectionLabel('JAMINAN IDENTITAS'),
                     _buildIdentitySection(),
                     const SizedBox(height: 28),
 
-                    // ── 4. Metode pembayaran ───────────────────────────────────
+                    // ── 5. Metode pembayaran ─────────────────────────────────
                     _buildSectionLabel('METODE PEMBAYARAN'),
                     _buildPaymentOption(
                       'Cashless (Midtrans)',
@@ -663,18 +710,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const SizedBox(height: 28),
 
-                    // ── 5. Detail biaya ────────────────────────────────────────
+                    // ── 6. Detail biaya ──────────────────────────────────────
                     _buildSectionLabel('DETAIL BIAYA'),
                     _buildPriceCard(),
                     const SizedBox(height: 24),
 
-                    // ── 6. S&K ─────────────────────────────────────────────────
+                    // ── 7. S&K ───────────────────────────────────────────────
                     _buildSKChecklist(),
                   ],
                 ),
               ),
             ),
           ),
+
           _buildGlassTopBar(context),
           _buildFloatingBottomBar(canSubmit),
         ],
@@ -682,7 +730,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  // ── Order Summary Card (dengan qty controls) ───────────────────────────────
+  // ── Order Summary Card ─────────────────────────────────────────────────────
   Widget _buildOrderSummaryCard() {
     final items = _cart.items;
 
@@ -721,7 +769,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
           return Column(
             children: [
-              // ── Satu baris item ────────────────────────────────────────
               Dismissible(
                 key: ValueKey('checkout_${item.product.id}'),
                 direction: DismissDirection.endToStart,
@@ -799,7 +846,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const SizedBox(width: 12),
 
-                    // Nama + harga
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -819,7 +865,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              // Tombol hapus (X)
                               GestureDetector(
                                 onTap: () => _showDeleteConfirm(
                                   index,
@@ -846,7 +891,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          // Qty Counter + subtotal per item
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -870,7 +914,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
 
-              // Divider antar item (kecuali item terakhir)
               if (!isLast)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1074,16 +1117,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             color: Colors.black.withOpacity(0.5),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Row(
+                          child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.refresh_rounded,
                                 color: Colors.white,
                                 size: 14,
                               ),
-                              const SizedBox(width: 4),
-                              const Text(
+                              SizedBox(width: 4),
+                              Text(
                                 'Ganti',
                                 style: TextStyle(
                                   color: Colors.white,
@@ -1098,6 +1141,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
             ),
           ),
+
           if (_identityValidationMessage != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -1131,6 +1175,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
           ],
+
           if (_imageFile == null) ...[
             const SizedBox(height: 10),
             Text(
@@ -1151,16 +1196,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _idTypeChip(String type) {
     final isSelected = _selectedIDType == type;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedIDType = type;
-          // reset gambar & hasil validasi
-          _imageFile = null;
-          _identityValidationMessage = null;
-          _isIdentityValid = false;
-          _hasilValidasi = null;
-        });
-      },
+      onTap: () => setState(() {
+        _selectedIDType = type;
+        _imageFile = null;
+        _identityValidationMessage = null;
+        _isIdentityValid = false;
+        _hasilValidasi = null;
+      }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -1258,7 +1300,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
       child: Column(
         children: [
-          // Per-item breakdown
           ..._cart.items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -1269,8 +1310,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
           ),
-
-          // Subtotal per hari
           _priceRow(
             _durasi > 0 ? 'Subtotal/hari × $_durasi hari' : 'Subtotal/hari',
             _cart.totalPerDay,
@@ -1467,7 +1506,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Hint: berapa hari dikali total/hari
             if (_durasi > 0)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),

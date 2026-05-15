@@ -38,6 +38,10 @@ dependencies:
 
   shimmer: ^3.0.0
 
+  # untuk map dan lokasi
+  flutter_map: ^7.0.0
+  latlong2: ^0.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
