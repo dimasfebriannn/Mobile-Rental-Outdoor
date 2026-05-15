@@ -984,41 +984,113 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   // ── DIALOG CLEAR ───────────────────────────────────────────────────────
 
-  void _confirmClear(BuildContext context) {
-    showDialog(
+void _confirmClear(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Hapus Riwayat Chat',
-          style: TextStyle(color: _cokelatTua, fontWeight: FontWeight.w900),
+      backgroundColor: Colors.transparent, // Agar background rounded terlihat
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
         ),
-        content: Text(
-          'Semua percakapan akan dihapus. Lanjutkan?',
-          style: TextStyle(color: _cokelatTua.withOpacity(0.7)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Batal',
-              style: TextStyle(color: _cokelatTua.withOpacity(0.5)),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<ChatProvider>().clearChat();
-            },
-            child: Text(
-              'Hapus',
-              style: TextStyle(
-                color: Colors.red.shade400,
-                fontWeight: FontWeight.w700,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle Bar (Garis kecil di atas)
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _latarKrem,
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+            
+            // Judul
+            Text(
+              "Hapus Riwayat Chat?",
+              style: TextStyle(
+                color: _cokelatTua,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            
+            // Deskripsi
+            Text(
+              "Semua percakapan kamu akan dihapus secara permanen dari asisten Majelis.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _cokelatTua.withOpacity(0.5),
+                fontSize: 13,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 32),
+            
+            // Tombol Aksi
+            Row(
+              children: [
+                // Tombol Batal
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: BorderSide(color: _cokelatTua, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: Text(
+                      "BATAL",
+                      style: TextStyle(
+                        color: _cokelatTua,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 15),
+                
+                // Tombol Hapus (Warna Cokelat Tua - Luxury style)
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      context.read<ChatProvider>().clearChat();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _cokelatTua,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: const Text(
+                      "HAPUS",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10), // Padding bawah ekstra
+          ],
+        ),
       ),
     );
   }

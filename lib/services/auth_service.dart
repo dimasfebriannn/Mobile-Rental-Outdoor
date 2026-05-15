@@ -38,7 +38,7 @@ class AuthService {
   Future<AuthResult> registerWithEmail({
     required String name,
     required String email,
-    required String password,
+    required String password, required String phone, required String address,
   }) async {
     try {
       // 1. Buat akun di Firebase

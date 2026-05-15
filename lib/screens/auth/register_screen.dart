@@ -1,6 +1,7 @@
 // lib/screens/auth/register_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:majelis_adventure/screens/auth/register_otp_screen.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../services/auth_service.dart';
 import '../home/home_screen.dart';
@@ -117,7 +118,6 @@ class _RegisterScreenState extends State<RegisterScreen>
     final password = _passwordController.text;
     final confirm  = _confirmPasswordController.text;
 
-    // Validasi sederhana
     if (name.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
       _showMessage('Semua kolom wajib diisi.');
       return;
@@ -126,26 +126,33 @@ class _RegisterScreenState extends State<RegisterScreen>
       _showMessage('Konfirmasi kata sandi tidak cocok.');
       return;
     }
-    if (password.length < 6) {
-      _showMessage('Kata sandi minimal 6 karakter.');
-      return;
-    }
 
     setState(() => _isLoading = true);
 
+    // REVISI LOGIC: Hit API Register 
     final result = await AuthService.instance.registerWithEmail(
       name: name,
       email: email,
-      password: password,
+      password: password, phone: '', address: '',
     );
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result.success) {
-      _showMessage('Registrasi berhasil! Selamat datang 🎉', isError: false);
-      await Future.delayed(const Duration(milliseconds: 800));
-      _goToHome();
+      // PINDAH KE HALAMAN OTP (Bukan ke Home)
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, anim1, anim2) => RegisterOtpScreen(
+            email: email,
+            name: name,
+            password: password,
+          ),
+          transitionsBuilder: (context, anim1, anim2, child) =>
+              FadeTransition(opacity: anim1, child: child),
+        ),
+      );
     } else {
       _showMessage(result.message ?? 'Registrasi gagal.');
     }
