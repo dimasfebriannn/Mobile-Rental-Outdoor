@@ -13,8 +13,7 @@ class ApiConfig {
 
   // ── URL per environment ───────────────────────────────────────────────────
   static const String _localUrl = 'http://10.0.2.2:8000/api';
-  static const String _ngrokUrl =
-      'https://6f83-103-105-57-88.ngrok-free.app/api';
+  static const String _ngrokUrl = 'https://cdc3-103-105-57-88.ngrok-free.app/api';
   static const String _prodUrl = 'https://api.yourdomain.com/api';
 
   static String get baseUrl {
@@ -36,6 +35,19 @@ class ApiConfig {
   static const String me = '/auth/me';
   static const String setPassword = '/auth/set-password';
 
+  // ── Reset Password Endpoints (3 langkah) ─────────────────────────────────
+  /// Langkah 1: Kirim OTP ke email
+  /// POST body: { email }
+  static const String forgotPassword = '/auth/forgot-password';
+
+  /// Langkah 2: Verifikasi OTP → dapat reset_token
+  /// POST body: { email, otp }
+  static const String verifyResetOtp = '/auth/verify-reset-otp';
+
+  /// Langkah 3: Buat password baru pakai reset_token
+  /// POST body: { reset_token, password, password_confirmation }
+  static const String resetPassword = '/auth/reset-password';
+
   // ── Barang / Katalog Endpoints ────────────────────────────────────────────
   static const String barang = '/barang';
   static String barangDetail(int id) => '/barang/$id';
@@ -50,23 +62,14 @@ class ApiConfig {
   static const String recommendationHistory = '/recommendation/history';
 
   // ── AI Chat Assistant Endpoints ───────────────────────────────────────────
-  /// POST /api/chat          → kirim pesan ke AI
   static const String chat = '/chat';
-
-  /// GET  /api/chat/history  → ambil riwayat chat
   static const String chatHistory = '/chat/history';
-
-  /// DELETE /api/chat/clear  → hapus riwayat chat
   static const String chatClear = '/chat/clear';
 
   // ── Checkout ──────────────────────────────────────────────────────────────
   static const String checkout = '/checkout';
-
-  static const String checkoutValidasiIdentitas =
-      '/checkout/validasi-identitas';
-
+  static const String checkoutValidasiIdentitas = '/checkout/validasi-identitas';
   static const String checkoutHistory = '/checkout/history';
-
   static String checkoutDetail(int id) => '/checkout/$id';
 
   // ── Dio settings ──────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import 'api_service.dart';
 
-// ─── Model untuk response auth ────────────────────────
+// ─── Model untuk response auth ────────────────────────────────────────────────
 class AuthResult {
   final bool success;
   final String? message;
@@ -31,10 +31,10 @@ class AuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final ApiService _api = ApiService.instance;
 
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   // REGISTER dengan Email & Password
   // Flow: Firebase register → Laravel API register → simpan token
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   Future<AuthResult> registerWithEmail({
     required String name,
     required String email,
@@ -80,13 +80,13 @@ class AuthService {
     }
   }
 
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   // LOGIN dengan Email & Password
   //
   // Firebase TIDAK digunakan di sini — cukup Laravel Sanctum.
   // Jika server mengembalikan auth_provider: 'google', berarti
   // akun ini harus login via Google.
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   Future<AuthResult> loginWithEmail({
     required String email,
     required String password,
@@ -120,13 +120,13 @@ class AuthService {
     }
   }
 
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   // LOGIN dengan Google
   // Flow: Google Sign-In → Firebase → Laravel API → simpan token
   //
   // Jika server mengembalikan auth_provider: 'email', berarti
   // akun ini harus login via email & password.
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   Future<AuthResult> loginWithGoogle() async {
     try {
       await _googleSignIn.signOut();
@@ -193,9 +193,9 @@ class AuthService {
     }
   }
 
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   // SET PASSWORD untuk akun Google
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   Future<AuthResult> setPasswordForGoogleAccount({
     required String email,
     required String password,
@@ -243,9 +243,9 @@ class AuthService {
     }
   }
 
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   // LOGOUT
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   Future<void> logout() async {
     try {
       await _api.delete(ApiConfig.logout);
@@ -255,9 +255,115 @@ class AuthService {
     await _googleSignIn.signOut();
   }
 
-  // ─────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RESET PASSWORD — 3 Langkah
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Langkah 1: Kirim OTP ke email ─────────────────────────────────────────
+  ///
+  /// Lempar [String] pesan error jika email tidak terdaftar atau koneksi gagal.
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _api.post(ApiConfig.forgotPassword, {'email': email});
+    } on DioException catch (e) {
+      throw _parseDioError(e);
+    }
+  }
+
+  // ── Langkah 2: Verifikasi OTP ─────────────────────────────────────────────
+  ///
+  /// Mengembalikan [resetToken] yang dipakai di langkah 3.
+  /// Lempar [String] pesan error jika OTP salah / kedaluwarsa.
+  Future<String> verifyResetOtp(String email, String otp) async {
+    try {
+      final response = await _api.post(ApiConfig.verifyResetOtp, {
+        'email': email,
+        'otp': otp,
+      });
+
+      final data = response.data as Map<String, dynamic>;
+      final token = data['reset_token'] as String?;
+
+      if (token == null || token.isEmpty) {
+        throw 'Server tidak mengembalikan token. Coba lagi.';
+      }
+
+      return token;
+    } on DioException catch (e) {
+      throw _parseDioError(e);
+    }
+  }
+
+  // ── Langkah 3: Reset Password ─────────────────────────────────────────────
+  ///
+  /// [resetToken]   → dari verifyResetOtp()
+  /// [password]     → password baru (min. 8 karakter)
+  /// [confirmation] → harus sama dengan [password]
+  Future<void> resetPassword({
+    required String resetToken,
+    required String password,
+    required String confirmation,
+  }) async {
+    try {
+      await _api.post(ApiConfig.resetPassword, {
+        'reset_token': resetToken,
+        'password': password,
+        'password_confirmation': confirmation,
+      });
+    } on DioException catch (e) {
+      throw _parseDioError(e);
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Helper: parse DioException → pesan error dalam Bahasa Indonesia
+  // Dipakai khusus oleh metode reset password (yang melempar String error).
+  // ───────────────────────────────────────────────────────────────────────────
+  String _parseDioError(DioException e) {
+    final data = e.response?.data;
+
+    if (data is Map) {
+      // Laravel validation errors → ambil pesan pertama dari errors map
+      if (data['errors'] is Map) {
+        final errors = data['errors'] as Map;
+        final first = errors.values.first;
+        if (first is List && first.isNotEmpty) {
+          return first.first.toString();
+        }
+      }
+      // Pesan langsung dari server
+      if (data['message'] != null) {
+        return data['message'].toString();
+      }
+    }
+
+    // Fallback berdasarkan status HTTP
+    switch (e.response?.statusCode) {
+      case 401:
+        return 'Sesi habis. Silakan login kembali.';
+      case 403:
+        return 'Anda tidak memiliki akses.';
+      case 404:
+        return 'Data tidak ditemukan.';
+      case 422:
+        return 'Data yang dikirim tidak valid.';
+      case 500:
+        return 'Terjadi kesalahan pada server. Coba beberapa saat lagi.';
+      default:
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return 'Koneksi timeout. Periksa jaringan Anda.';
+        }
+        if (e.type == DioExceptionType.connectionError) {
+          return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+        }
+        return 'Terjadi kesalahan. Silakan coba lagi.';
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // Helper: terjemahkan kode error Firebase ke Bahasa Indonesia
-  // ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   String _firebaseErrorMessage(String code) {
     switch (code) {
       case 'user-not-found':
