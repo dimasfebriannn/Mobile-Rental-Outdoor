@@ -272,11 +272,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: darkBrown, // Identity card dibuat kontras (Luxury Feel)
+        color: Colors.white,
         borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: darkBrown.withOpacity(0.06)),
         boxShadow: [
           BoxShadow(
-            color: darkBrown.withOpacity(0.2),
+            color: darkBrown.withOpacity(0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -300,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   _profile?.name ?? "Pendaki",
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: darkBrown,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
@@ -308,7 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   _profile?.email ?? "...",
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: darkBrown.withOpacity(0.4),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
