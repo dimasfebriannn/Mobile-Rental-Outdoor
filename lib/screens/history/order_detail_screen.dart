@@ -1,22 +1,31 @@
 // lib/screens/orders/order_detail_screen.dart
 //
-// FIXES yang diterapkan:
-//  Bug B — Foto barang tidak tampil:
-//    _buildImage() sekarang memanggil ImageUrlHelper.fix() sebelum load.
-//    Ini mengganti http://127.0.0.1:PORT → base URL aktif (ngrok/produksi).
-//  Bug C — Foto denda tidak tampil:
-//    URL foto denda juga dilewatkan ke ImageUrlHelper.fix() sebelum
-//    ditampilkan dengan Image.network().
-//  Fix #1/#2/#3/#4 dari iterasi sebelumnya tetap dipertahankan.
+// PERUBAHAN BARU:
+//  ✅ QR Code nomor transaksi (menggantikan placeholder "QR Verifikasi")
+//  ✅ Status timeline dilengkapi tanggal & jam
+//  ✅ E-Struk (digital receipt) lengkap dengan status real-time
+//  ✅ Keterangan COD vs Cashless + instruksi tunjukkan QR/nomor
+//  ✅ Warning H+1 otomatis batal jika COD belum ke basecamp
+//
+// DEPENDENCY BARU yang harus ditambahkan di pubspec.yaml:
+//   qr_flutter: ^4.1.0
+//
+// FIXES lama yang tetap dipertahankan:
+//  Bug B — Foto barang tidak tampil (ImageUrlHelper.fix)
+//  Bug C — Foto denda tidak tampil
+//  Fix #1/#2/#3/#4 dari iterasi sebelumnya
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/order_model.dart';
 import '../../services/checkout_service.dart';
-import '../../utils/image_url_helper.dart'; // FIX Bug B & C
+import '../../utils/image_url_helper.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int transaksiId;
@@ -44,6 +53,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
   late AnimationController _animCtrl;
   late Animation<double>   _fadeAnim;
+
+  // ── Tab controller untuk E-Struk ──────────────────────────────────────
+  int _selectedTab = 0; // 0 = Detail, 1 = E-Struk
 
   @override
   void initState() {
@@ -82,7 +94,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
-  // ── Formatters ─────────────────────────────────────────────────────────
+  // ── Formatters ──────────────────────────────────────────────────────────
   String _fmtCurrency(dynamic v) {
     final d = double.tryParse(v?.toString() ?? '0') ?? 0;
     return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(d);
@@ -95,19 +107,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     return DateFormat('d MMM yyyy', 'id_ID').format(d);
   }
 
-  // ── Durasi hari dari root _detail['durasi_hari'] ────────────────────────
+  String _fmtDateTime(String? iso) {
+    if (iso == null || iso.isEmpty) return '-';
+    final d = DateTime.tryParse(iso);
+    if (d == null) return iso;
+    return DateFormat('d MMM yyyy, HH:mm', 'id_ID').format(d);
+  }
+
+  String _fmtDateTimeFull(DateTime? dt) {
+    if (dt == null) return '-';
+    return DateFormat('d MMM yyyy, HH:mm', 'id_ID').format(dt);
+  }
+
+  // ── Durasi hari ─────────────────────────────────────────────────────────
   int get _durasiHari {
     final fromRoot = _detail?['durasi_hari'];
-    if (fromRoot != null) {
-      return int.tryParse(fromRoot.toString()) ?? 0;
-    }
+    if (fromRoot != null) return int.tryParse(fromRoot.toString()) ?? 0;
     final details = _detail?['details'] as List?;
     if (details != null && details.isNotEmpty) {
-      final first = details[0];
-      if (first is Map) {
-        final d = first['durasi_hari'];
-        if (d != null) return int.tryParse(d.toString()) ?? 0;
-      }
+      final d = details[0]['durasi_hari'];
+      if (d != null) return int.tryParse(d.toString()) ?? 0;
     }
     final tglAmbil   = _detail?['tanggal_ambil']?.toString();
     final tglKembali = _detail?['tanggal_kembali']?.toString();
@@ -119,7 +138,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     return 0;
   }
 
-  // ── Reopen midtrans payment ────────────────────────────────────────────
+  // ── Apakah COD ──────────────────────────────────────────────────────────
+  bool get _isCod {
+    final metode = _detail?['metode_pembayaran']?.toString() ?? '';
+    return metode.toLowerCase() == 'tunai';
+  }
+
+  // ── Deadline COD (H+1 dari tanggal ambil) ──────────────────────────────
+  DateTime? get _deadlineCod {
+    final tglAmbil = _detail?['tanggal_ambil']?.toString();
+    if (tglAmbil == null) return null;
+    final dt = DateTime.tryParse(tglAmbil);
+    if (dt == null) return null;
+    return dt.add(const Duration(days: 1));
+  }
+
+  bool get _codMelampauiDeadline {
+    final deadline = _deadlineCod;
+    if (deadline == null) return false;
+    return DateTime.now().isAfter(deadline);
+  }
+
+  // ── Actions ──────────────────────────────────────────────────────────────
   Future<void> _reopenPayment() async {
     setState(() => _isActionLoading = true);
     try {
@@ -141,7 +181,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
-  // ── Bayar denda cashless ───────────────────────────────────────────────
   Future<void> _payDenda() async {
     setState(() => _isActionLoading = true);
     try {
@@ -175,7 +214,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ── Status info ────────────────────────────────────────────────────────
+  // ── Status helpers ───────────────────────────────────────────────────────
   _StatusInfo _getStatusInfo(String? status) {
     switch (status) {
       case 'menunggu_pembayaran':
@@ -197,7 +236,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
-  // ── Timeline ───────────────────────────────────────────────────────────
   List<_TimelineStep> _buildTimeline(String? status) {
     const allSteps = ['menunggu_pembayaran', 'dibayar', 'berjalan', 'dikembalikan', 'selesai'];
     final stepLabels = {
@@ -208,21 +246,40 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       'selesai':             ('Selesai', 'Terima kasih sudah menyewa'),
     };
     final currentIdx = allSteps.indexOf(status ?? '');
+
+    // Ambil timestamps dari riwayat status jika ada
+    final riwayat = (_detail?['riwayat_status'] as List?) ?? [];
+
+    String? getTimestamp(String s) {
+      for (final r in riwayat) {
+        if (r is Map && r['status']?.toString() == s) {
+          return r['created_at']?.toString();
+        }
+      }
+      // Fallback: gunakan tanggal dari field transaksi
+      if (s == 'menunggu_pembayaran') return _detail?['created_at']?.toString();
+      if (s == 'berjalan') return _detail?['tanggal_ambil']?.toString();
+      if (s == 'selesai') return _detail?['updated_at']?.toString();
+      return null;
+    }
+
     return allSteps.asMap().entries.map((e) {
       final idx = e.key;
       final key = e.value;
       final (label, desc) = stepLabels[key]!;
+      final isDone = idx < currentIdx || status == 'selesai' || status == key;
       return _TimelineStep(
         label:    label,
         desc:     desc,
-        isDone:   idx < currentIdx || status == 'selesai' || status == key,
+        isDone:   isDone,
         isActive: idx == currentIdx,
         isLast:   idx == allSteps.length - 1,
+        timestamp: isDone ? getTimestamp(key) : null,
       );
     }).toList();
   }
 
-  // ── Denda helpers ──────────────────────────────────────────────────────
+  // ── Denda helpers ────────────────────────────────────────────────────────
   bool get _hasDendaBelumLunas {
     if (_detail == null) return false;
     final totalDenda = double.tryParse(_detail!['total_denda']?.toString() ?? '0') ?? 0;
@@ -242,15 +299,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final raw = _detail?['denda'];
     if (raw == null) return [];
     if (raw is List) {
-      return raw
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
+      return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
     }
     return [];
   }
 
-  // ── Root build ─────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
+  // BUILD
+  // ════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -272,27 +328,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 ? const Center(child: CircularProgressIndicator(color: _goldenYellow))
                 : FadeTransition(
                     opacity: _fadeAnim,
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 110),
-                          _buildVoucher(),
-                          const SizedBox(height: 20),
-                          _buildStatusTimeline(),
-                          const SizedBox(height: 20),
-                          _buildItemsStruk(),
-                          const SizedBox(height: 20),
-                          _buildInvoiceSummary(),
-                          const SizedBox(height: 20),
-                          if (_dendaList.isNotEmpty) ...[
-                            _buildDendaDetail(),
-                            const SizedBox(height: 20),
-                          ],
-                          _buildActionButtons(),
-                          const SizedBox(height: 100),
-                        ],
-                      ),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 110),
+                        // ── Tab Bar ────────────────────────────────────────
+                        _buildTabBar(),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: _selectedTab == 0
+                              ? _buildDetailTab()
+                              : _buildEStrukTab(),
+                        ),
+                      ],
                     ),
                   ),
           ),
@@ -309,7 +356,190 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ── Glass Top Bar ──────────────────────────────────────────────────────
+  // ── Tab Bar ─────────────────────────────────────────────────────────────
+  Widget _buildTabBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: _darkBrown.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: Row(
+          children: [
+            _TabItem(label: 'Detail Pesanan', icon: Icons.receipt_outlined, isSelected: _selectedTab == 0, onTap: () => setState(() => _selectedTab = 0)),
+            _TabItem(label: 'E-Struk', icon: Icons.description_outlined, isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // TAB 1: DETAIL PESANAN
+  // ════════════════════════════════════════════════════════════════════════
+  Widget _buildDetailTab() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          _buildVoucher(),
+          const SizedBox(height: 20),
+          // COD info banner
+          if (_isCod) ...[
+            _buildCodInfoBanner(),
+            const SizedBox(height: 20),
+          ],
+          _buildStatusTimeline(),
+          const SizedBox(height: 20),
+          _buildItemsStruk(),
+          const SizedBox(height: 20),
+          _buildInvoiceSummary(),
+          const SizedBox(height: 20),
+          if (_dendaList.isNotEmpty) ...[
+            _buildDendaDetail(),
+            const SizedBox(height: 20),
+          ],
+          _buildActionButtons(),
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  // ── COD Info Banner ──────────────────────────────────────────────────────
+  Widget _buildCodInfoBanner() {
+    final status     = _detail?['status']?.toString() ?? widget.order.rawStatus;
+    final nomorTrx   = _detail?['nomor_transaksi']?.toString() ?? widget.order.orderId;
+    final deadline   = _deadlineCod;
+    final sudahLewat = _codMelampauiDeadline;
+
+    // Jika sudah bayar/berjalan, tidak perlu tampil banner COD pending
+    if (status == 'berjalan' || status == 'selesai' || status == 'dibatalkan') {
+      return const SizedBox();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: sudahLewat ? const Color(0xFFFFEBEE) : const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: sudahLewat ? const Color(0xFFFFCDD2) : const Color(0xFFFFE082),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                sudahLewat ? Icons.cancel_outlined : Icons.store_outlined,
+                color: sudahLewat ? const Color(0xFFD32F2F) : const Color(0xFFFF8F00),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                sudahLewat ? 'Batas Waktu Habis' : 'Pembayaran Tunai (COD)',
+                style: TextStyle(
+                  color: sudahLewat ? const Color(0xFFB71C1C) : const Color(0xFFE65100),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (sudahLewat) ...[
+            Text(
+              'Pesanan ini akan otomatis DIBATALKAN karena Anda belum datang ke basecamp pada H+1 tanggal ambil.',
+              style: TextStyle(color: const Color(0xFFD32F2F), fontSize: 12, height: 1.5),
+            ),
+            if (deadline != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Batas: ${_fmtDateTimeFull(deadline)}',
+                style: const TextStyle(color: Color(0xFFB71C1C), fontWeight: FontWeight.w700, fontSize: 12),
+              ),
+            ],
+          ] else ...[
+            Text(
+              'Silakan datang ke basecamp Majelis Rental dan tunjukkan nomor transaksi atau QR Code di bawah kepada petugas untuk menyelesaikan pembayaran.',
+              style: TextStyle(color: const Color(0xFF5D4037), fontSize: 12, height: 1.5),
+            ),
+            if (deadline != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.timer_outlined, size: 13, color: const Color(0xFFFF8F00)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Batas kedatangan: ${_fmtDateTimeFull(deadline)}',
+                    style: const TextStyle(color: Color(0xFFE65100), fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            // Mini QR untuk COD
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: _creamBg, borderRadius: BorderRadius.circular(10)),
+                    child: QrImageView(
+                      data: nomorTrx,
+                      version: QrVersions.auto,
+                      size: 64,
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Nomor Transaksi', style: TextStyle(color: _darkBrown.withOpacity(0.4), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                        const SizedBox(height: 4),
+                        Text(nomorTrx, style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.3)),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: nomorTrx));
+                            _showSnack('Nomor transaksi disalin!');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: _goldenYellow.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text('Salin Nomor', style: TextStyle(color: _darkBrown, fontSize: 10, fontWeight: FontWeight.w800)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Glass Top Bar ────────────────────────────────────────────────────────
   Widget _buildGlassTopBar() {
     return Positioned(
       top: 0, left: 0, right: 0,
@@ -359,7 +589,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ── Voucher ────────────────────────────────────────────────────────────
+  // ── Voucher — dengan QR Code nomor transaksi ─────────────────────────────
   Widget _buildVoucher() {
     final status     = _detail?['status']?.toString() ?? widget.order.rawStatus;
     final nomorTrx   = _detail?['nomor_transaksi']?.toString() ?? widget.order.orderId;
@@ -368,6 +598,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final metode     = _detail?['metode_pembayaran']?.toString() ?? '';
     final info       = _getStatusInfo(status);
     final durasi     = _durasiHari;
+    final isCod      = metode.toLowerCase() == 'tunai';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -391,12 +622,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 const SizedBox(width: 8),
                 Text(info.label, style: TextStyle(color: info.color, fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 0.5)),
                 const Spacer(),
-                if (metode.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: info.color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
-                    child: Text(metode.toUpperCase(), style: TextStyle(color: info.color, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: info.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isCod ? Icons.payments_outlined : Icons.contactless_rounded,
+                        size: 10,
+                        color: info.color,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isCod ? 'TUNAI' : (metode.isNotEmpty ? metode.toUpperCase() : 'CASHLESS'),
+                        style: TextStyle(color: info.color, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -411,11 +658,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('MAJELIS ADVENTURE', style: TextStyle(color: _goldenYellow, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                      Text('MAJELIS RENTAL', style: TextStyle(color: _goldenYellow, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
                       const SizedBox(height: 4),
-                      Text(widget.order.productName, style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.3), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Text(
+                        widget.order.productName,
+                        style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.3),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(height: 4),
-                      Text(nomorTrx, style: TextStyle(color: _darkBrown.withOpacity(0.3), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: nomorTrx));
+                          _showSnack('Nomor transaksi disalin!');
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(nomorTrx, style: TextStyle(color: _darkBrown.withOpacity(0.35), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.copy_outlined, size: 10, color: _darkBrown.withOpacity(0.25)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -441,7 +706,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           ),
           // Date + durasi section
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
             child: Column(
               children: [
                 Row(
@@ -467,47 +732,162 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                     _DateBlock(label: 'KEMBALI', date: _fmtDate(tglKembali), icon: Icons.logout_rounded, alignRight: true),
                   ],
                 ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('QR VERIFIKASI', style: TextStyle(color: _darkBrown.withOpacity(0.3), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1)),
-                        const SizedBox(height: 3),
-                        Text('Valid di Basecamp', style: TextStyle(color: _darkBrown, fontSize: 12, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                    const Spacer(),
-                    Icon(Icons.qr_code_scanner_rounded, size: 42, color: _darkBrown.withOpacity(0.8)),
-                  ],
+                const SizedBox(height: 20),
+                // ── QR Code nomor transaksi (BARU) ──────────────────────
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _creamBg,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      // QR Code
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(color: _darkBrown.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                        ),
+                        child: QrImageView(
+                          data: nomorTrx,
+                          version: QrVersions.auto,
+                          size: 80,
+                          backgroundColor: Colors.white,
+                          errorCorrectionLevel: QrErrorCorrectLevel.M,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'NOMOR TRANSAKSI',
+                              style: TextStyle(color: _darkBrown.withOpacity(0.35), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              nomorTrx,
+                              style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.3),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              isCod
+                                  ? 'Tunjukkan QR ini ke petugas basecamp'
+                                  : 'Scan untuk verifikasi di basecamp',
+                              style: TextStyle(color: _darkBrown.withOpacity(0.4), fontSize: 11, height: 1.3),
+                            ),
+                            const SizedBox(height: 10),
+                            GestureDetector(
+                              onTap: () => _showQrFullscreen(nomorTrx),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _goldenYellow,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.qr_code_rounded, size: 12, color: _darkBrown),
+                                    const SizedBox(width: 4),
+                                    const Text('Perbesar QR', style: TextStyle(color: _darkBrown, fontSize: 10, fontWeight: FontWeight.w900)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  // FIX Bug B: Foto barang dari detail — foto_utama_url difix host-nya
+  // ── QR Fullscreen ────────────────────────────────────────────────────────
+  void _showQrFullscreen(String nomorTrx) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'MAJELIS RENTAL',
+                style: TextStyle(color: _goldenYellow, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 2),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'QR Verifikasi Transaksi',
+                style: TextStyle(color: _darkBrown, fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              const SizedBox(height: 20),
+              QrImageView(
+                data: nomorTrx,
+                version: QrVersions.auto,
+                size: 220,
+                backgroundColor: Colors.white,
+                errorCorrectionLevel: QrErrorCorrectLevel.H,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(color: _creamBg, borderRadius: BorderRadius.circular(10)),
+                child: Text(
+                  nomorTrx,
+                  style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Tunjukkan QR ini kepada petugas basecamp\nuntuk verifikasi pesanan Anda.',
+                style: TextStyle(color: _darkBrown.withOpacity(0.5), fontSize: 11, height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(color: _darkBrown, borderRadius: BorderRadius.circular(12)),
+                  child: const Center(
+                    child: Text('TUTUP', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Product Thumb ────────────────────────────────────────────────────────
   Widget _buildProductThumb() {
     String? fotoUrl;
     final details = _detail?['details'] as List?;
     if (details != null && details.isNotEmpty) {
-      final first  = details[0];
-      final barang = first is Map ? first['barang'] : null;
+      final barang = details[0] is Map ? (details[0] as Map)['barang'] : null;
       if (barang is Map) {
-        // Ambil URL dan fix host agar tidak stuck di 127.0.0.1
-        fotoUrl = ImageUrlHelper.fix(
-          barang['foto_utama_url']?.toString() ?? barang['foto_utama']?.toString(),
-        );
+        fotoUrl = ImageUrlHelper.fix(barang['foto_utama_url']?.toString() ?? barang['foto_utama']?.toString());
       }
     }
-    // Fallback ke order image (sudah difix di OrderModel.fromJson)
-    if (fotoUrl == null || fotoUrl.isEmpty) {
-      fotoUrl = widget.order.imagePath;
-    }
+    fotoUrl ??= widget.order.imagePath;
 
     return Container(
       width: 64, height: 64,
@@ -520,12 +900,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ── FIX Bug B & C: helper load image dengan URL fixer ─────────────────
-  // ImageUrlHelper.fix() mengganti http://127.0.0.1:PORT → base URL aktif
   Widget _buildImage(String? url, {double size = 48}) {
-    // FIX: selalu fix URL sebelum load
     final fixedUrl = ImageUrlHelper.fix(url);
-
     if (fixedUrl.isEmpty) {
       return Icon(Icons.backpack_outlined, color: _darkBrown, size: size * 0.6);
     }
@@ -547,10 +923,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ── Timeline ───────────────────────────────────────────────────────────
+  // ── Timeline — dengan tanggal & jam ─────────────────────────────────────
   Widget _buildStatusTimeline() {
     final status = _detail?['status']?.toString() ?? '';
-    if (status == 'dibatalkan') return const SizedBox();
+    if (status == 'dibatalkan') {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: _darkBrown.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 6))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.cancel_rounded, color: Color(0xFF757575), size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Pesanan Dibatalkan', style: TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 14)),
+                  SizedBox(height: 4),
+                  Text('Transaksi ini telah dibatalkan.', style: TextStyle(color: Color(0xFF757575), fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final steps = _buildTimeline(status);
 
     return Container(
@@ -607,7 +1014,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 ),
               ),
               if (!step.isLast)
-                Container(width: 2, height: 32, color: _darkBrown.withOpacity(0.06)),
+                Container(width: 2, height: 36, color: _darkBrown.withOpacity(0.06)),
             ],
           ),
           const SizedBox(width: 14),
@@ -625,9 +1032,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       fontSize: 13,
                     ),
                   ),
-                  if (step.isActive || step.isDone) ...[
+                  if (step.isDone || step.isActive) ...[
                     const SizedBox(height: 2),
                     Text(step.desc, style: TextStyle(color: _darkBrown.withOpacity(0.35), fontSize: 11, fontWeight: FontWeight.w500)),
+                  ],
+                  // ── Timestamp (BARU) ───────────────────────────────
+                  if (step.timestamp != null && step.isDone) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time_rounded, size: 10, color: _goldenYellow.withOpacity(0.7)),
+                        const SizedBox(width: 4),
+                        Text(
+                          _fmtDateTime(step.timestamp),
+                          style: TextStyle(color: _goldenYellow.withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
                   ],
                   const SizedBox(height: 14),
                 ],
@@ -639,7 +1060,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ── Struk Barang — FIX Bug B: foto_utama_url difix host-nya ───────────
+  // ── Struk Barang ─────────────────────────────────────────────────────────
   Widget _buildItemsStruk() {
     final items = (_detail?['details'] as List?) ?? [];
     if (items.isEmpty) return const SizedBox();
@@ -663,7 +1084,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   child: const Icon(Icons.receipt_long_rounded, color: _darkBrown, size: 14),
                 ),
                 const SizedBox(width: 10),
-                const Text('STRUK PENYEWAAN', style: TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
+                const Text('ITEM PESANAN', style: TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
               ],
             ),
           ),
@@ -676,12 +1097,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             final item   = entry.value as Map<String, dynamic>;
             final barang = item['barang'] as Map<String, dynamic>?;
             final nama   = barang?['nama']?.toString() ?? 'Item';
-
-            // FIX Bug B: fix host URL sebelum ditampilkan
-            final foto = ImageUrlHelper.fix(
-              barang?['foto_utama_url']?.toString() ?? barang?['foto_utama']?.toString(),
-            );
-
+            final foto   = ImageUrlHelper.fix(barang?['foto_utama_url']?.toString() ?? barang?['foto_utama']?.toString());
             final qty    = item['jumlah'] ?? item['qty'] ?? 1;
             final harga  = item['harga_per_hari'];
             final durasi = item['durasi_hari'] ?? 1;
@@ -736,7 +1152,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ── Invoice Summary ────────────────────────────────────────────────────
+  // ── Invoice Summary ──────────────────────────────────────────────────────
   Widget _buildInvoiceSummary() {
     final totalSewa   = double.tryParse(_detail?['total_sewa']?.toString() ?? '0') ?? 0;
     final totalDenda  = double.tryParse(_detail?['total_denda']?.toString() ?? '0') ?? 0;
@@ -830,7 +1246,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
-  // ── Detail Denda — FIX Bug C: foto denda URL difix host-nya ───────────
+  // ── Denda Detail ─────────────────────────────────────────────────────────
   Widget _buildDendaDetail() {
     final dendaList = _dendaList;
     if (dendaList.isEmpty) return const SizedBox();
@@ -864,7 +1280,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Divider(color: _darkBrown.withOpacity(0.06), thickness: 1),
           ),
-
           ...dendaList.asMap().entries.map((entry) {
             final d          = entry.value;
             final jenis      = d['jenis']?.toString() ?? '';
@@ -921,7 +1336,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                           Text(_fmtCurrency(jumlah), style: const TextStyle(color: Color(0xFFD32F2F), fontWeight: FontWeight.w900, fontSize: 14)),
                         ],
                       ),
-
                       if (catatan.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Container(
@@ -938,8 +1352,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                           ),
                         ),
                       ],
-
-                      // FIX Bug C: foto denda — fix host URL sebelum load
                       if (fotos.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Text('Foto Bukti', style: TextStyle(color: _darkBrown.withOpacity(0.4), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
@@ -952,10 +1364,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                             separatorBuilder: (_, __) => const SizedBox(width: 8),
                             itemBuilder: (ctx, i) {
                               final foto = fotos[i] as Map? ?? {};
-                              // FIX Bug C: ambil 'url' (sudah diisi server) lalu fix host
-                              final rawUrl = foto['url']?.toString() ?? '';
-                              final url    = ImageUrlHelper.fix(rawUrl);
-
+                              final url  = ImageUrlHelper.fix(foto['url']?.toString() ?? '');
                               return GestureDetector(
                                 onTap: () => url.isNotEmpty ? _showFotoFullscreen(ctx, url) : null,
                                 child: ClipRRect(
@@ -968,20 +1377,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                                           fit: BoxFit.cover,
                                           loadingBuilder: (_, child, progress) {
                                             if (progress == null) return child;
-                                            return Container(
-                                              width: 90, height: 90, color: _creamBg,
-                                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: _goldenYellow)),
-                                            );
+                                            return Container(width: 90, height: 90, color: _creamBg, child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: _goldenYellow)));
                                           },
-                                          errorBuilder: (_, __, ___) => Container(
-                                            width: 90, height: 90, color: _creamBg,
-                                            child: Icon(Icons.broken_image_rounded, color: _darkBrown.withOpacity(0.3)),
-                                          ),
+                                          errorBuilder: (_, __, ___) => Container(width: 90, height: 90, color: _creamBg, child: Icon(Icons.broken_image_rounded, color: _darkBrown.withOpacity(0.3))),
                                         )
-                                      : Container(
-                                          width: 90, height: 90, color: _creamBg,
-                                          child: Icon(Icons.image_not_supported_rounded, color: _darkBrown.withOpacity(0.3)),
-                                        ),
+                                      : Container(width: 90, height: 90, color: _creamBg, child: Icon(Icons.image_not_supported_rounded, color: _darkBrown.withOpacity(0.3))),
                                 ),
                               );
                             },
@@ -1020,8 +1420,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 child: Image.network(
                   url,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.broken_image_rounded, color: Colors.white, size: 64),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: Colors.white, size: 64),
                 ),
               ),
             ),
@@ -1042,13 +1441,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ── Action Buttons ─────────────────────────────────────────────────────
+  // ── Action Buttons ───────────────────────────────────────────────────────
   Widget _buildActionButtons() {
     if (_detail == null) return const SizedBox();
 
     final status = _detail!['status']?.toString() ?? '';
     final metode = _detail!['metode_pembayaran']?.toString() ?? '';
-
     final List<Widget> buttons = [];
 
     if (status == 'menunggu_pembayaran' && metode == 'midtrans') {
@@ -1116,7 +1514,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               const Text('Pembayaran Tunai', style: TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 17)),
               const SizedBox(height: 10),
               Text(
-                'Silakan datang ke basecamp Majelis Adventure untuk melunasi denda secara tunai. Tunjukkan nomor transaksi kepada petugas.',
+                'Silakan datang ke basecamp Majelis Rental untuk melunasi denda secara tunai. Tunjukkan nomor transaksi kepada petugas.',
                 style: TextStyle(color: _darkBrown.withOpacity(0.6), fontSize: 13, height: 1.5),
               ),
               const SizedBox(height: 8),
@@ -1144,9 +1542,454 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       ),
     );
   }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // TAB 2: E-STRUK DIGITAL
+  // ════════════════════════════════════════════════════════════════════════
+  Widget _buildEStrukTab() {
+    if (_detail == null) return const Center(child: CircularProgressIndicator(color: _goldenYellow));
+
+    final status       = _detail!['status']?.toString() ?? '';
+    final nomorTrx     = _detail!['nomor_transaksi']?.toString() ?? widget.order.orderId;
+    final tglAmbil     = _detail!['tanggal_ambil']?.toString() ?? '';
+    final tglKembali   = _detail!['tanggal_kembali']?.toString() ?? '';
+    final metode       = _detail!['metode_pembayaran']?.toString() ?? '';
+    final totalSewa    = double.tryParse(_detail!['total_sewa']?.toString() ?? '0') ?? 0;
+    final totalDenda   = double.tryParse(_detail!['total_denda']?.toString() ?? '0') ?? 0;
+    final statusBayar  = _detail!['status_pembayaran']?.toString() ?? '';
+    final createdAt    = _detail!['created_at']?.toString();
+    final updatedAt    = _detail!['updated_at']?.toString();
+    final items        = (_detail!['details'] as List?) ?? [];
+    final durasi       = _durasiHari;
+    final isCod        = metode.toLowerCase() == 'tunai';
+    final info         = _getStatusInfo(status);
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [BoxShadow(color: _darkBrown.withOpacity(0.08), blurRadius: 30, offset: const Offset(0, 12))],
+            ),
+            child: Column(
+              children: [
+                // ── Header E-Struk ───────────────────────────────────────
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: _darkBrown,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text('MAJELIS RENTAL', style: TextStyle(color: _goldenYellow, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 2)),
+                      const SizedBox(height: 4),
+                      Text('Basecamp Rental', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                      const SizedBox(height: 16),
+                      // Status badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: info.color.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: info.color.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(info.icon, size: 14, color: info.color),
+                            const SizedBox(width: 6),
+                            Text(info.label.toUpperCase(), style: TextStyle(color: info.color, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      QrImageView(
+                        data: nomorTrx,
+                        version: QrVersions.auto,
+                        size: 120,
+                        backgroundColor: Colors.white,
+                        errorCorrectionLevel: QrErrorCorrectLevel.H,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(nomorTrx, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
+                      const SizedBox(height: 4),
+                      Text(_fmtDateTime(createdAt), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                    ],
+                  ),
+                ),
+
+                // ── Dashed Divider ───────────────────────────────────────
+                _EStrukDivider(),
+
+                // ── Info Dasar ───────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    children: [
+                      _EStrukRow(label: 'Status', value: info.label, valueColor: info.color),
+                      const SizedBox(height: 8),
+                      _EStrukRow(
+                        label: 'Metode Pembayaran',
+                        value: isCod ? 'Tunai (COD)' : 'Cashless (Midtrans)',
+                        icon: isCod ? Icons.payments_outlined : Icons.contactless_rounded,
+                      ),
+                      const SizedBox(height: 8),
+                      _EStrukRow(label: 'Tanggal Ambil', value: _fmtDate(tglAmbil)),
+                      const SizedBox(height: 8),
+                      _EStrukRow(label: 'Tanggal Kembali', value: _fmtDate(tglKembali)),
+                      const SizedBox(height: 8),
+                      _EStrukRow(label: 'Durasi', value: '$durasi hari'),
+                      const SizedBox(height: 8),
+                      _EStrukRow(label: 'Dibuat', value: _fmtDateTime(createdAt)),
+                      const SizedBox(height: 8),
+                      _EStrukRow(label: 'Diperbarui', value: _fmtDateTime(updatedAt)),
+                    ],
+                  ),
+                ),
+
+                // ── COD Info di E-Struk ──────────────────────────────────
+                if (isCod && (status == 'menunggu_pembayaran' || status == 'dibayar')) ...[
+                  _EStrukDivider(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _codMelampauiDeadline ? const Color(0xFFFFEBEE) : const Color(0xFFFFF8E1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _codMelampauiDeadline ? const Color(0xFFFFCDD2) : const Color(0xFFFFE082),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _codMelampauiDeadline ? '⚠ Batas Waktu Habis' : '📋 Instruksi COD',
+                            style: TextStyle(
+                              color: _codMelampauiDeadline ? const Color(0xFFB71C1C) : const Color(0xFFE65100),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _codMelampauiDeadline
+                                ? 'Transaksi ini akan dibatalkan karena melewati batas kedatangan H+1.'
+                                : 'Datang ke basecamp dan tunjukkan QR Code atau nomor transaksi di atas kepada petugas.',
+                            style: TextStyle(
+                              color: _codMelampauiDeadline ? const Color(0xFFD32F2F) : const Color(0xFF5D4037),
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                          if (_deadlineCod != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Batas: ${_fmtDateTimeFull(_deadlineCod)}',
+                              style: TextStyle(
+                                color: _codMelampauiDeadline ? const Color(0xFFB71C1C) : const Color(0xFFFF8F00),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
+                // ── Dashed Divider ───────────────────────────────────────
+                _EStrukDivider(),
+
+                // ── Item List ────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Row(
+                    children: [
+                      Text('ITEM SEWA', style: TextStyle(color: _darkBrown.withOpacity(0.4), fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...items.map((item) {
+                  final m      = item as Map<String, dynamic>;
+                  final barang = m['barang'] as Map<String, dynamic>?;
+                  final nama   = barang?['nama']?.toString() ?? 'Item';
+                  final qty    = m['jumlah'] ?? m['qty'] ?? 1;
+                  final harga  = m['harga_per_hari'];
+                  final dur    = m['durasi_hari'] ?? 1;
+                  final sub    = m['subtotal'];
+
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(nama, style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w700, fontSize: 13)),
+                              Text(
+                                '${_fmtCurrency(harga)}/hari × $qty × $dur hari',
+                                style: TextStyle(color: _darkBrown.withOpacity(0.4), fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(_fmtCurrency(sub), style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w800, fontSize: 13)),
+                      ],
+                    ),
+                  );
+                }),
+
+                // ── Dashed Divider ───────────────────────────────────────
+                _EStrukDivider(),
+
+                // ── Total ────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Subtotal Sewa', style: TextStyle(color: _darkBrown.withOpacity(0.5), fontSize: 13)),
+                          Text(_fmtCurrency(totalSewa), style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w700, fontSize: 13)),
+                        ],
+                      ),
+                      if (totalDenda > 0) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.warning_amber_rounded, size: 13, color: Color(0xFFD32F2F)),
+                                const SizedBox(width: 4),
+                                Text('Denda', style: TextStyle(color: const Color(0xFFD32F2F).withOpacity(0.8), fontSize: 13)),
+                              ],
+                            ),
+                            Text(_fmtCurrency(totalDenda), style: const TextStyle(color: Color(0xFFD32F2F), fontWeight: FontWeight.w700, fontSize: 13)),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Container(height: 1.5, color: _darkBrown.withOpacity(0.08)),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('TOTAL', style: TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 15)),
+                          Text(_fmtCurrency(totalSewa + totalDenda), style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 18)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Status Bayar', style: TextStyle(color: _darkBrown.withOpacity(0.4), fontSize: 12)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _statusBadgeColor(statusBayar).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _statusBayarLabel(statusBayar),
+                              style: TextStyle(
+                                color: _statusBadgeColor(statusBayar) == Colors.white54 ? _darkBrown : _statusBadgeColor(statusBayar),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // ── Denda detail di e-struk ──────────────────────
+                      if (_dendaList.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEBEE),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('DETAIL DENDA', style: TextStyle(color: Color(0xFFD32F2F), fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+                              const SizedBox(height: 8),
+                              ..._dendaList.map((d) {
+                                final jenis      = d['jenis']?.toString() ?? '';
+                                final jumlah     = double.tryParse(d['jumlah']?.toString() ?? '0') ?? 0;
+                                final sudahBayar = d['dibayar_pada'] != null;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        jenis == 'kerusakan' ? Icons.construction_rounded : Icons.timer_off_rounded,
+                                        size: 12,
+                                        color: const Color(0xFFD32F2F),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          jenis == 'kerusakan' ? 'Kerusakan' : 'Keterlambatan',
+                                          style: const TextStyle(color: Color(0xFF5D4037), fontSize: 12),
+                                        ),
+                                      ),
+                                      if (sudahBayar)
+                                        Container(
+                                          margin: const EdgeInsets.only(right: 6),
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(6)),
+                                          child: const Text('LUNAS', style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.w900, fontSize: 9)),
+                                        ),
+                                      Text(_fmtCurrency(jumlah), style: const TextStyle(color: Color(0xFFD32F2F), fontWeight: FontWeight.w700, fontSize: 12)),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // ── Footer ───────────────────────────────────────────────
+                _EStrukDivider(),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Text('Terima kasih telah menyewa di', style: TextStyle(color: _darkBrown.withOpacity(0.4), fontSize: 11)),
+                      Text('Majelis Rental', style: const TextStyle(color: _darkBrown, fontWeight: FontWeight.w900, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Struk ini diperbarui secara otomatis.\nStatus terkini: ${info.label}',
+                        style: TextStyle(color: _darkBrown.withOpacity(0.3), fontSize: 10, height: 1.5),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
 }
 
-// ── Helper Widgets ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPER WIDGETS
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _TabItem extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _TabItem({required this.label, required this.icon, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    const darkBrown    = Color(0xFF3E2723);
+    const goldenYellow = Color(0xFFE5A93D);
+    const creamBg      = Color(0xFFF5EFE6);
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? darkBrown : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: isSelected ? goldenYellow : darkBrown.withOpacity(0.3)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : darkBrown.withOpacity(0.4),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EStrukDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: List.generate(60, (i) => Expanded(
+          child: Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            color: i.isEven ? const Color(0xFF3E2723).withOpacity(0.08) : Colors.transparent,
+          ),
+        )),
+      ),
+    );
+  }
+}
+
+class _EStrukRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final IconData? icon;
+
+  const _EStrukRow({required this.label, required this.value, this.valueColor, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    const darkBrown = Color(0xFF3E2723);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: darkBrown.withOpacity(0.45), fontSize: 12)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[Icon(icon, size: 12, color: valueColor ?? darkBrown), const SizedBox(width: 4)],
+            Text(value, style: TextStyle(color: valueColor ?? darkBrown, fontWeight: FontWeight.w700, fontSize: 12)),
+          ],
+        ),
+      ],
+    );
+  }
+}
 
 class _TicketPunch extends StatelessWidget {
   final bool left;
@@ -1305,5 +2148,13 @@ class _TimelineStep {
   final bool isDone;
   final bool isActive;
   final bool isLast;
-  const _TimelineStep({required this.label, required this.desc, required this.isDone, required this.isActive, required this.isLast});
+  final String? timestamp; // BARU: tanggal & jam event
+  const _TimelineStep({
+    required this.label,
+    required this.desc,
+    required this.isDone,
+    required this.isActive,
+    required this.isLast,
+    this.timestamp,
+  });
 }
