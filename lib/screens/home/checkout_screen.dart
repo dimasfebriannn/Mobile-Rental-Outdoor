@@ -4,11 +4,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/checkout_service.dart';
 import '../../models/weather_recommendation.dart';
 import '../../models/product.dart';
 import '../checkout/weather_recommendation_section.dart';
+import '../history/history_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({
@@ -493,16 +495,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // ── Payment ────────────────────────────────────────────────────────────────
   Future<void> _processPayment() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+    
+    try {
+      final req = CheckoutRequest(
+        tanggalAmbil: _tglAmbil!,
+        tanggalKembali: _tglKembali!,
+        metodePembayaran: _selectedMethod,
+        jenisIdentitas: _selectedIDType,
+        fotoIdentitas: _imageFile!,
+        items: _cart.items
+            .map((i) => CheckoutItem(barangId: i.product.id, qty: i.qty))
+            .toList(),
+      );
 
-    final snapshot = _cart.items.toList();
-    _cart.clear();
-    _showSuccessDialog(snapshot);
+      final resp = await CheckoutService.instance.submitCheckout(req);
+      
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (_selectedMethod == 'midtrans' && resp.redirectUrl != null) {
+        final Uri url = Uri.parse(resp.redirectUrl!);
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.inAppWebView);
+        }
+      }
+
+      final snapshot = _cart.items.toList();
+      final double totalSewa = _totalSewa;
+      _cart.clear();
+      _showSuccessDialog(snapshot, resp.nomorTransaksi ?? 'UNKNOWN', totalSewa);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red.shade400,
+        ),
+      );
+    }
   }
 
-  void _showSuccessDialog(List<CartItem> snapshot) {
+  void _showSuccessDialog(List<CartItem> snapshot, String nomorTransaksi, double totalSewaFixed) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -541,7 +576,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'TRX-MAJELIS-${DateFormat('yyyyMMdd-HHmm').format(DateTime.now())}',
+                nomorTransaksi,
                 style: TextStyle(
                   color: goldenYellow,
                   fontSize: 12,
@@ -592,7 +627,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                'Total: ${_formatCurrency(_totalSewa)}\nDurasi: $_durasi hari',
+                'Total: ${_formatCurrency(totalSewaFixed)}\nDurasi: $_durasi hari',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: darkBrown.withOpacity(0.5),
@@ -613,10 +648,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () =>
-                      Navigator.of(context).popUntil((r) => r.isFirst),
+                  onPressed: () {
+                    Navigator.of(context).popUntil((r) => r.isFirst);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const HistoryScreen(),
+                      ),
+                    );
+                  },
                   child: const Text(
-                    'KEMBALI KE BERANDA',
+                    'LIHAT RIWAYAT PESANAN',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,

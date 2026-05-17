@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'services/api_service.dart';
 import 'screens/splash/splash_screen.dart';
 import 'providers/chat_provider.dart';
@@ -18,7 +19,10 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 2. Inisialisasi Dio (HTTP client)
+  // 2. Inisialisasi locale Indonesia untuk DateFormat('id_ID')
+  await initializeDateFormatting('id_ID', null);
+
+  // 3. Inisialisasi Dio (HTTP client)
   ApiService.instance.init();
 
   runApp(const MajelisRentalApp());

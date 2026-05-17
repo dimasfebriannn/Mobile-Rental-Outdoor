@@ -13,7 +13,7 @@ class ApiConfig {
 
   // ── URL per environment ───────────────────────────────────────────────────
   static const String _localUrl = 'http://10.0.2.2:8000/api';
-  static const String _ngrokUrl = 'https://prism-everglade-earthy.ngrok-free.dev/api';
+  static const String _ngrokUrl = 'https://405f-103-105-57-88.ngrok-free.app/api';
   static const String _prodUrl = 'https://api.yourdomain.com/api';
 
   static String get baseUrl {
@@ -68,10 +68,16 @@ class ApiConfig {
 
   // ── Checkout ──────────────────────────────────────────────────────────────
   static const String checkout = '/checkout';
-  static const String checkoutValidasiIdentitas = '/checkout/validasi-identitas';
+  static const String checkoutValidasiIdentitas =
+      '/checkout/validasi-identitas';
   static const String checkoutHistory = '/checkout/history';
   static String checkoutDetail(int id) => '/checkout/$id';
 
+  static String checkoutReopenPayment(int id) => '/checkout/$id/reopen-payment';
+
+  static String checkoutBayarDenda(int id) => '/checkout/$id/bayar-denda';
+
+  static String checkoutDetailLengkap(int id) => '/checkout/$id/detail-lengkap';
   // ── Dio settings ──────────────────────────────────────────────────────────
   static const int connectTimeout = 30000;
   static const int receiveTimeout = 60000;
